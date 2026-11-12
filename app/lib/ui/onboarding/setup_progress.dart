@@ -5,9 +5,11 @@
 // run beside it.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
@@ -23,19 +25,20 @@ import 'runtime_setup_page.dart' show showRuntimeLogSheet;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
+enum RuntimeInstallFailure { failed, unavailable }
+
 /// The one way the app starts unpacking the runtime. A request while another
 /// is on its way, or while Android is already unpacking, is that same request:
 /// paging through first run, or coming back to it, never starts a second one
 /// (the native `install_busy` check stays as the second line).
 ///
-/// The state is whether the last request failed before Android reported
-/// anything (a bridge that never got going); every other failure Android
-/// reports itself, as `phase: error`.
-class RuntimeInstallController extends Notifier<bool> {
+/// Null until a request fails before a status event, or iOS explicitly reports
+/// that installation is unavailable. Other failures arrive as `phase: error`.
+class RuntimeInstallController extends Notifier<RuntimeInstallFailure?> {
   Future<void>? _pending;
 
   @override
-  bool build() => false;
+  RuntimeInstallFailure? build() => null;
 
   /// [dropKept]: give up what a reset kept but cannot put back.
   Future<void> install({bool dropKept = false}) {
@@ -48,19 +51,37 @@ class RuntimeInstallController extends Notifier<bool> {
   }
 
   Future<void> _run(bool dropKept) async {
-    state = false;
+    state = null;
     // Installing means wanting it here: launches without it no longer skip setup.
     unawaited(ref.read(onboardingPrefsProvider.notifier).setLocalDeclined(false));
     try {
       final runtime = ref.read(localRuntimeProvider.notifier);
       await (dropKept ? runtime.installDroppingKept() : runtime.install());
-    } catch (_) {
-      if (ref.mounted && ref.read(localRuntimeProvider).status.phase == RuntimePhase.notInstalled) state = true;
+    } catch (error) {
+      if (!ref.mounted) return;
+      if (Platform.isIOS && error is PlatformException && error.code == 'shellbox_install_unimplemented') {
+        state = RuntimeInstallFailure.unavailable;
+      } else if (ref.read(localRuntimeProvider).status.phase == RuntimePhase.notInstalled) {
+        state = RuntimeInstallFailure.failed;
+      }
     }
   }
 }
 
-final runtimeInstallProvider = NotifierProvider<RuntimeInstallController, bool>(RuntimeInstallController.new);
+final runtimeInstallProvider = NotifierProvider<RuntimeInstallController, RuntimeInstallFailure?>(
+  RuntimeInstallController.new,
+);
+
+/// Recognize the native code both before and after the next status poll.
+/// No other install error, or Android failure, disables retry.
+final localInstallUnavailableProvider = Provider<bool>((ref) {
+  final failure = ref.watch(runtimeInstallProvider);
+  final error = ref.watch(localRuntimeProvider.select((s) => s.status.error));
+  return Platform.isIOS &&
+      (failure == RuntimeInstallFailure.unavailable ||
+          error == 'shellbox_install_unimplemented' ||
+          (error?.startsWith('shellbox_install_unimplemented:') ?? false));
+});
 
 /// Where the runtime stands for first run.
 enum SetupRuntime {
@@ -92,7 +113,7 @@ SetupRuntime setupRuntimeOf(RuntimeStatus status, {bool launchFailed = false}) =
 final setupRuntimeProvider = Provider<SetupRuntime>(
   (ref) => setupRuntimeOf(
     ref.watch(localRuntimeProvider.select((s) => s.status)),
-    launchFailed: ref.watch(runtimeInstallProvider),
+    launchFailed: ref.watch(runtimeInstallProvider) != null || ref.watch(localInstallUnavailableProvider),
   ),
 );
 
@@ -463,6 +484,7 @@ class _SetupStatusSheet extends ConsumerWidget {
     final state = ref.watch(localRuntimeProvider);
     final eta = ref.watch(installEtaProvider);
     final failed = runtime == SetupRuntime.failed;
+    final unavailable = ref.watch(localInstallUnavailableProvider);
     final ready = runtime == SetupRuntime.ready;
     final progress = runtime == SetupRuntime.unpacking ? state.progress : null;
     final double? fraction = ready
@@ -471,12 +493,16 @@ class _SetupStatusSheet extends ConsumerWidget {
         ? 0
         : progress?.fraction;
     final title = failed
-        ? l10n.shellRuntimeIncomplete
+        ? unavailable
+              ? '${l10n.localEnvInstallTitle} · ${l10n.remoteUnavailable}'
+              : l10n.shellRuntimeIncomplete
         : ready
         ? l10n.shellRuntimeReady
         : l10n.shellRuntimePreparing;
     final body = failed
-        ? humanizeRuntimeError(state.status.error) ?? l10n.shellRuntimeExtractFailed
+        ? unavailable
+              ? l10n.localEnvRemoteDetail
+              : humanizeRuntimeError(state.status.error) ?? l10n.shellRuntimeExtractFailed
         : ready
         ? l10n.shellRuntimeLocalOnly
         : l10n.shellRuntimeFirstSetup;
@@ -532,7 +558,7 @@ class _SetupStatusSheet extends ConsumerWidget {
             const SizedBox(height: 24),
             if (failed) ...[
               _FailedActions(
-                onRetry: () => unawaited(ref.read(runtimeInstallProvider.notifier).install()),
+                onRetry: unavailable ? null : () => unawaited(ref.read(runtimeInstallProvider.notifier).install()),
                 onRemote: switch (onRemote) {
                   final remote? => () {
                     navigator.pop();
@@ -565,7 +591,7 @@ class _SetupStatusSheet extends ConsumerWidget {
 /// What to do about a stopped unpack: 「改用远程主机」 and 「重试」 as twins
 /// side by side when both names fit on one line, as the platform's own
 /// dialogs do; else stacked full width, 重试 on top. Without a remote way,
-/// just 重试.
+/// just 重试. An unavailable install has no retry; remote becomes primary.
 class _FailedActions extends StatelessWidget {
   const _FailedActions({required this.onRetry, this.onRemote});
 
@@ -574,12 +600,21 @@ class _FailedActions extends StatelessWidget {
   /// Between stacked buttons, as on the first-run pages.
   static const stackGap = 10.0;
 
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
   final VoidCallback? onRemote;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (onRetry == null) {
+      return onRemote == null
+          ? const SizedBox.shrink()
+          : FilledButton(
+              key: const ValueKey('setup-use-remote'),
+              onPressed: onRemote,
+              child: Text(l10n.localEnvUseRemote, textAlign: TextAlign.center),
+            );
+    }
     final retry = FilledButton(
       key: const ValueKey('setup-retry'),
       onPressed: onRetry,

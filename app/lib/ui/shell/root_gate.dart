@@ -345,7 +345,9 @@ class _RootGateState extends ConsumerState<RootGate> {
           step: step,
           chooseRuntime: _chooseRuntime,
           beside: _beside,
-          onLocal: _chooseRuntime ? _chooseLocal : null,
+          // iOS waits for the native install result on the runtime page;
+          // an unavailable installer must not advance into parallel setup.
+          onLocal: _chooseRuntime && !Platform.isIOS ? _chooseLocal : null,
           onAppearanceDone: _afterAppearance,
           onAccessDone: _afterAccess,
           onFinished: _afterFinishing,

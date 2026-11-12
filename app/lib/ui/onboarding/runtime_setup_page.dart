@@ -54,7 +54,8 @@ class RuntimeSetupPage extends ConsumerStatefulWidget {
   final bool choose;
 
   /// The way to a remote host instead of installing: the second choice
-  /// ([choose]) and, after a failed install, a quiet 「改用远程主机」.
+  /// ([choose]) and, after a failed install, 「改用远程主机」. This is the
+  /// primary action when the native installer is unavailable.
   final VoidCallback? onRemote;
 
   /// Picked 「本机」 in the choice: the caller starts the unpack and moves on
@@ -92,7 +93,7 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final phase = ref.read(localRuntimeProvider).status.phase;
-      if (phase == RuntimePhase.notInstalled && !_asks) _install();
+      if (phase == RuntimePhase.notInstalled && !_asks && !ref.read(localInstallUnavailableProvider)) _install();
     });
   }
 
@@ -152,7 +153,10 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
   Widget build(BuildContext context) {
     ref.listen(localRuntimeProvider.select((s) => s.progress), (_, next) => _primeNotifications(next));
     final state = ref.watch(localRuntimeProvider);
-    final view = _viewFor(state, launchFailed: ref.watch(runtimeInstallProvider));
+    final view = _viewFor(
+      state,
+      launchFailed: ref.watch(runtimeInstallProvider) != null || ref.watch(localInstallUnavailableProvider),
+    );
     if (view == _SetupView.done) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleFinish());
     }
@@ -175,6 +179,7 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
     final scheme = theme.colorScheme;
     final colors = DshColors.of(context);
     final progress = state.progress;
+    final unavailable = ref.watch(localInstallUnavailableProvider);
     final fraction = switch (view) {
       _SetupView.done => 1.0,
       _SetupView.installing => progress?.fraction,
@@ -187,6 +192,7 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
       _SetupView.installing ||
       _SetupView.choose => _upgrade ? l10n.shellRuntimeUpdating : l10n.shellRuntimePreparing,
       _SetupView.done => l10n.shellRuntimeReady,
+      _SetupView.failed when unavailable => '${l10n.localEnvInstallTitle} · ${l10n.remoteUnavailable}',
       _SetupView.failed => l10n.shellRuntimeIncomplete,
     };
     final body = switch (view) {
@@ -195,6 +201,7 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
       _SetupView.installing ||
       _SetupView.choose => _upgrade ? l10n.shellRuntimeFilesKept : l10n.shellRuntimeFirstSetup,
       _SetupView.done => l10n.shellRuntimeContinuing,
+      _SetupView.failed when unavailable => l10n.localEnvRemoteDetail,
       _SetupView.failed when state.status.keepFailed => l10n.shellRuntimeRestoreFailed,
       _SetupView.failed => humanizeRuntimeError(state.status.error) ?? l10n.shellRuntimeExtractFailed,
     };
@@ -265,6 +272,10 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
         ),
         const Spacer(flex: 2),
         if (view == _SetupView.failed) ...[
+          if (unavailable && widget.onRemote != null) ...[
+            FilledButton(onPressed: widget.onRemote, child: Text(l10n.localEnvUseRemote)),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(
@@ -273,10 +284,12 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
                   child: Text(l10n.commonViewLogs),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(onPressed: () => _install(), child: Text(l10n.commonRetry)),
-              ),
+              if (!unavailable) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(onPressed: () => _install(), child: Text(l10n.commonRetry)),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -313,7 +326,7 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
               child: Text(l10n.commonViewLogs),
             ),
           )
-        else if (state.status.keepFailed)
+        else if (!unavailable && state.status.keepFailed)
           // The way out when kept files cannot go back: quiet, in the log link's place.
           Center(
             child: TextButton(
@@ -322,11 +335,11 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
               child: Text(l10n.shellRuntimeContinueWithoutKept),
             ),
           )
-        else if (widget.onRemote case final onRemote?)
+        else if (!unavailable && widget.onRemote != null)
           // Storage full, a broken package…: the other way in, just as quiet.
           Center(
             child: TextButton(
-              onPressed: onRemote,
+              onPressed: widget.onRemote,
               style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
               child: Text(l10n.localEnvUseRemote),
             ),
