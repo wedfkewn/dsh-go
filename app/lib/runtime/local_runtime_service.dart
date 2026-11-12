@@ -7,8 +7,17 @@ abstract interface class LocalRuntimeService {
   Future<LocalRuntimeServiceStatus> status();
 }
 
-/// No running state until the native lifecycle contract has been implemented.
-enum LocalRuntimeServicePhase { unimplemented }
+/// Native lifecycle phases; unimplemented preserves the initial iOS scaffold.
+enum LocalRuntimeServicePhase {
+  unimplemented,
+  notInstalled,
+  installing,
+  installed,
+  starting,
+  running,
+  stopping,
+  error,
+}
 
 class LocalRuntimeServiceError {
   const LocalRuntimeServiceError(this.code, this.message);

@@ -459,6 +459,9 @@ class RuntimeLogsEvent extends RuntimeEvent {
 
 class RuntimeLogSnapshot {
   const RuntimeLogSnapshot(this.entries, this.throughSeq);
+  factory RuntimeLogSnapshot.fromMap(Map<Object?, Object?> raw) =>
+      RuntimeLogSnapshot(_logEntries(raw['entries']), raw['throughSeq'] as int);
+
   final List<RuntimeLogEntry> entries;
   final int throughSeq;
 }

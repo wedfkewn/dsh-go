@@ -19,28 +19,41 @@ final class ShellBoxRuntimeService implements LocalRuntimeService {
   @override
   Future<void> restart() => _channel.invokeMethod<void>('restart');
 
-  @override
-  Future<LocalRuntimeServiceStatus> status() async {
+  /// Also used by the UI adapter so optional RuntimeStatus fields are retained.
+  Future<Map<String, dynamic>> statusMap() async {
     final response = await _channel.invokeMapMethod<String, dynamic>('status');
-    if (response == null || response['phase'] != 'unimplemented') {
+    if (response == null ||
+        !LocalRuntimeServicePhase.values.any((p) => p.name == response['phase'])) {
       throw PlatformException(
         code: 'shellbox_status_invalid_response',
         message: 'Native ShellBox returned an unsupported status.',
       );
     }
     final error = response['error'];
-    if (error is! Map || error['code'] is! String || error['message'] is! String) {
+    if ((error != null && error is! String && error is! Map) ||
+        (error is Map && (error['code'] is! String || error['message'] is! String))) {
       throw PlatformException(
         code: 'shellbox_status_invalid_response',
         message: 'Native ShellBox returned an invalid error.',
       );
     }
+    return response;
+  }
+
+  @override
+  Future<LocalRuntimeServiceStatus> status() async {
+    final response = await statusMap();
+    final error = response['error'];
     return LocalRuntimeServiceStatus(
-      phase: LocalRuntimeServicePhase.unimplemented,
-      error: LocalRuntimeServiceError(
-        error['code'] as String,
-        error['message'] as String,
-      ),
+      phase: LocalRuntimeServicePhase.values.firstWhere((p) => p.name == response['phase']),
+      error: switch (error) {
+        final Map value => LocalRuntimeServiceError(
+          value['code'] as String,
+          value['message'] as String,
+        ),
+        final String message => LocalRuntimeServiceError('shellbox_runtime_error', message),
+        _ => null,
+      },
     );
   }
 }
