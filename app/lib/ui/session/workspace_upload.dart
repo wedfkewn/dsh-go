@@ -77,7 +77,9 @@ class _WorkspaceUploadRowState extends ConsumerState<WorkspaceUploadRow> {
         items: [for (final file in files) '${file.name} (${file.size} B)'],
       ));
       if (!approved || !mounted || ref.read(activeHostProvider) != host ||
-          !identical(ref.read(activeConnectionProvider).value?.client, client)) return;
+          !identical(ref.read(activeConnectionProvider).value?.client, client)) {
+        return;
+      }
     }
     setState(() {
       _done = 0;
