@@ -1,4 +1,5 @@
 import 'package:dsh_app/runtime/local_runtime_service.dart';
+import 'package:dsh_app/runtime/shellbox/shellbox_runtime_bridge.dart';
 import 'package:dsh_app/runtime/shellbox/shellbox_runtime_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,23 @@ void main() {
     expect(status.phase, LocalRuntimeServicePhase.unimplemented);
     expect(status.error?.code, 'shellbox_start_rootfs_unimplemented');
     expect(status.error?.message, 'No prepared payload.');
+  });
+
+  test('app adapter uses ShellBox start and names unsupported operations', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'start');
+      throw PlatformException(code: 'shellbox_start_rootfs_unimplemented');
+    });
+    final bridge = ShellBoxRuntimeBridge(service: service);
+    await expectLater(bridge.start(), throwsA(isA<PlatformException>().having(
+      (e) => e.code, 'code', 'shellbox_start_rootfs_unimplemented',
+    )));
+    await expectLater(bridge.install(), throwsA(isA<PlatformException>().having(
+      (e) => e.code, 'code', 'shellbox_install_rootfs_unimplemented',
+    )));
+    await expectLater(bridge.storageStatus(), throwsA(isA<PlatformException>().having(
+      (e) => e.code, 'code', 'shellbox_storageStatus_unimplemented',
+    )));
   });
 
   test('unsupported status fails instead of implying success', () async {

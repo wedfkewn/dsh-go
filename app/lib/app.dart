@@ -17,6 +17,7 @@ import 'ui/chat/dsh_ui/dsh_ui_model.dart' show DshUiAppAccent;
 import 'ui/common/side_insets.dart';
 import 'ui/launch/launch_overlay.dart';
 import 'ui/shell/root_gate.dart';
+import 'ui/remote/transfer_consent_dialog.dart';
 import 'ui/theme/theme.dart';
 import 'ui_config/ui_config_state.dart';
 import 'usage/usage_stats.dart';
@@ -165,6 +166,7 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) => _settled = true);
     }
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: AppInfo.name,
       debugShowCheckedModeBanner: false,
       theme: _light,

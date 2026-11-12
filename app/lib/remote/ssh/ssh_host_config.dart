@@ -10,7 +10,7 @@ enum SshDshMode { managed, attachOnly }
 /// The remote `dsh web` launch command used when none is configured.
 const defaultDshLaunchCommand = 'dsh web';
 
-/// One saved SSH host. Persisted as JSON in SharedPreferences (no secrets).
+/// One saved SSH host. Persisted as JSON in SecretStore, alongside separately keyed credentials.
 class SshHostConfig {
   const SshHostConfig({
     required this.id,

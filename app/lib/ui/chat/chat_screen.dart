@@ -260,6 +260,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   /// 每个对话一份草稿:换对话时输入条换成那个对话的字和附件。
   late final DraftStore _draftStore;
+  late HostRef _draftHost;
 
   /// The open conversation's id, or `new`.
   late String _draftKey;
@@ -309,7 +310,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     }
   }
 
-  void _saveDraft() => _draftStore.save(_draftKey, _input.text, _drafts);
+  void _saveDraft() => _draftStore.save(_draftKey, _input.text, _drafts, host: _draftHost);
 
   /// Attachments first: setting the text saves both.
   void _showDraft(ChatDraft? draft) {
@@ -323,9 +324,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
 
   void _reportVoice() => _voiceFlag.set(_voice.active);
 
-  void _switchDraft(String? sessionId) {
+  void _switchDraft(String? sessionId, {bool hostChanged = false}) {
     final key = sessionId ?? 'new';
-    if (key == _draftKey) return;
+    if (key == _draftKey && !hostChanged) return;
     _dropPreparedPhoneSkill();
     _draftScope = Object();
     _creating = null;
@@ -335,6 +336,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _mentions.dismiss();
     _dismissedSlashText = null;
     _saveDraft();
+    _draftHost = ref.read(activeHostProvider);
     _draftKey = key;
     _spoken = null;
     _editing = false;
@@ -374,6 +376,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     });
     _voiceFlag = ref.read(voiceInputActiveProvider.notifier);
     _voice.addListener(_reportVoice);
+    _draftHost = ref.read(activeHostProvider);
     _draftKey = ref.read(currentSessionProvider) ?? 'new';
     _draftStore = ref.read(draftStoreProvider.notifier);
     // Start reading what earlier sessions still owe before the first send.
@@ -382,6 +385,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     _input.addListener(_resetSlashDismissal);
     _input.addListener(_saveDraft);
     ref.listenManual(currentSessionProvider, (_, next) => _switchDraft(next));
+    ref.listenManual(activeHostProvider, (previous, next) {
+      if (previous != next) _switchDraft(null, hostChanged: true);
+    });
     ref.listenManual(activeConnectionProvider.select((c) => c.value?.client), (_, _) {
       _dropPreparedPhoneSkill();
       _draftScope = Object();

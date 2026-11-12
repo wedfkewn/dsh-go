@@ -116,12 +116,15 @@ class HostSheet extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SheetTitleBar(l10n.remoteSwitchHost),
+              if (ref.watch(hostsProvider).storageFailed)
+                TextButton(onPressed: () => ref.read(hostsProvider.notifier).reload(),
+                  child: Text(l10n.remoteHostStorageRetry)),
               SheetGroup(
                 margin: const EdgeInsets.fromLTRB(SheetTitleBar.inset, 0, SheetTitleBar.inset, 12),
                 children: [
                   _HostRow(
                     host: HostRef.local,
-                    title: l10n.commonThisPhone,
+                    title: l10n.remoteLocalMode,
                     subtitle: l10n.remoteThisPhoneDsh,
                     active: active.isLocal,
                     onTap: localMissing ? installLocal : () => pick(HostRef.local),
@@ -130,7 +133,7 @@ class HostSheet extends ConsumerWidget {
                     _HostRow(
                       host: HostRef.ssh(h.id),
                       title: h.name,
-                      subtitle: 'SSH · ${h.address}',
+                      subtitle: '${l10n.remoteRemoteMode} · SSH · ${h.address}',
                       active: active == HostRef.ssh(h.id),
                       onTap: () => pick(HostRef.ssh(h.id)),
                     ),

@@ -4,6 +4,8 @@ import 'package:dsh_client/dsh_client.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../remote/transfer_consent.dart';
+import '../../state/hosts_state.dart';
 import 'native_effects.dart';
 import 'native_file_platform.dart';
 import 'native_state.dart';
@@ -14,11 +16,14 @@ abstract interface class NativeFileTransport {
 }
 
 class ClientNativeFileTransport implements NativeFileTransport {
-  ClientNativeFileTransport(this.client);
+  ClientNativeFileTransport(this.client, {this.consent});
+  final Future<bool> Function(NativeSelectedFile)? consent;
   final DshClient client;
   @override
-  Future<void> upload(String request, String stream, NativeSelectedFile file, Uint8List bytes) =>
-      client.uploadDshGoPickedFile(request, bytes, stream: stream, name: file.name, mediaType: file.mediaType);
+  Future<void> upload(String request, String stream, NativeSelectedFile file, Uint8List bytes) async {
+    if (consent != null && !await consent!(file)) throw StateError('remote_transfer_not_confirmed');
+    await client.uploadDshGoPickedFile(request, bytes, stream: stream, name: file.name, mediaType: file.mediaType);
+  }
   @override
   Future<DshGoInvokeResult> complete(String request, String stream, String status) =>
       client.completeDshGoFileSelection(request, stream: stream, status: status);
@@ -268,9 +273,14 @@ final nativeFileCoordinatorProvider = Provider<NativeFileCoordinator?>((ref) {
   final bridge = ref.watch(nativeBridgeProvider);
   final stream = ref.watch(nativeStreamProvider);
   if (bridge is! ClientNativeBridge || stream == null || !bridge.client.canReachDshGo) return null;
+  final host = ref.watch(activeHostProvider);
+  final consent = ref.watch(remoteTransferConsentProvider);
   final runtime = NativeFileCoordinator(
     platform: ref.watch(nativeFilePlatformProvider),
-    transport: ClientNativeFileTransport(bridge.client),
+    transport: ClientNativeFileTransport(bridge.client, consent: host.isLocal ? null : (file) async {
+      final approved = await consent(RemoteTransfer(destination: host.toString(), items: [file.name]));
+      return approved && ref.mounted && ref.read(activeHostProvider) == host;
+    }),
     gate: ref.watch(nativeFileGateProvider),
     holdSystemSelection: stream.holdSystemSelection,
   );

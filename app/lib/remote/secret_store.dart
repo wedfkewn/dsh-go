@@ -11,7 +11,7 @@ abstract class SecretStore {
   Future<void> delete(String key);
 }
 
-/// Android Keystore-backed storage (flutter_secure_storage).
+/// Android Keystore / iOS Keychain storage (flutter_secure_storage).
 class SecureSecretStore implements SecretStore {
   SecureSecretStore([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
 

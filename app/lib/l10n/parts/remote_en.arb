@@ -462,5 +462,14 @@
   "remoteCompactHistory": "Compact history",
   "remoteErrHistoryModeChanged": "The Host no longer supports compact history. Switch to another host and back, or restart the app, to reload history.",
   "remoteCompactHistoryHint": "Reduces historical tool details on supporting DSH Remote Hosts; live replies and approvals stay unchanged. Switch hosts or restart the app to apply. Older Hosts keep full history.",
-  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote"
+  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote",
+  "remoteTransferConfirmTitle": "Send data to this remote host?",
+  "remoteTransferConfirmHelp": "Only the listed message and files will be sent. Switching hosts does not transfer local sessions or files.",
+  "remoteTransferConfirmSend": "Confirm transfer",
+  "remoteGenerateKey": "Generate",
+  "remoteGeneratedPublicKey": "Public key — install on the host, then save",
+  "remoteKeyGenerationFailed": "SSH key generation failed",
+  "remoteLocalMode": "Local · This phone",
+  "remoteRemoteMode": "Remote",
+  "remoteHostStorageRetry": "Secure host storage is unavailable. Tap to retry."
 }

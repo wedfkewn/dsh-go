@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../diagnostics/app_error_log.dart';
 import '../l10n/l10n.dart';
+import '../remote/transfer_consent.dart';
 import '../usage/usage_stats.dart';
 import 'attachments.dart';
 import 'chat_error_text.dart';
@@ -1297,6 +1298,14 @@ class ChatController extends Notifier<ChatState> {
     final trimmed = text.trim();
     if (client == null || (trimmed.isEmpty && attachments.isEmpty)) {
       return false;
+    }
+    final host = ref.read(activeHostProvider);
+    if (!host.isLocal) {
+      final approved = await ref.read(remoteTransferConsentProvider)(RemoteTransfer(
+        destination: hostLabel(host.kind, ref.read(hostNameProvider(host))),
+        items: [if (text.isNotEmpty) text, for (final a in attachments) '${a.name} (${a.size} B)'],
+      ));
+      if (!approved || !ref.mounted || ref.read(activeHostProvider) != host || !identical(client, _client)) return false;
     }
     final body = verbatim ? text : trimmed;
     if (!_canControl && (mode == SendMode.interrupt || !await waitForSync())) return false;

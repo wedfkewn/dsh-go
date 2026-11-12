@@ -537,7 +537,7 @@ AsyncValue<HostConnection?> _connectionForHost(Ref ref, HostRef host) {
       return ref.watch(localConnectionProvider);
     case HostKind.ssh:
       final known = ref.watch(hostsProvider.select((s) => !s.loaded || s.sshById(host.id) != null));
-      if (!known) return ref.watch(localConnectionProvider);
+      if (!known) return AsyncError(StateError('ssh_host_unavailable'), StackTrace.current);
       final loaded = ref.watch(hostsProvider.select((s) => s.loaded));
       if (!loaded) return const AsyncLoading();
       return ref.watch(remoteConnectionProvider(host));

@@ -40,7 +40,8 @@ enum HostKeyVerdict { trusted, unknown, mismatch }
 HostKeyVerdict checkHostKey(SshHostConfig config, PresentedHostKey key) {
   final pinned = config.hostKeyFingerprint;
   if (pinned == null || pinned.isEmpty) return HostKeyVerdict.unknown;
-  return pinned == key.fingerprint ? HostKeyVerdict.trusted : HostKeyVerdict.mismatch;
+  return pinned == key.fingerprint && (config.hostKeyType == null || config.hostKeyType == key.type)
+      ? HostKeyVerdict.trusted : HostKeyVerdict.mismatch;
 }
 
 HostLinkError hostKeyMismatchError(SshHostConfig config, PresentedHostKey key) => HostLinkError(
@@ -233,8 +234,8 @@ class SshHostLink implements HostLink {
           if (!ok) {
             throw HostLinkError(HostLinkErrorKind.hostKeyRejected, appL10n.remoteHostTrustCancelled);
           }
-          _config = _config.copyWith(hostKeyType: () => key.type, hostKeyFingerprint: () => key.fingerprint);
           await pinHostKey?.call(key);
+          _config = _config.copyWith(hostKeyType: () => key.type, hostKeyFingerprint: () => key.fingerprint);
           if (_closed) return false;
           return true;
       }

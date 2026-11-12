@@ -9,8 +9,10 @@ import 'dev/frame_probe.dart';
 import 'diagnostics/app_error_log.dart';
 import 'launch/launch_state.dart';
 import 'links/page_links.dart' show registerPageLink, tavernPageLink;
+import 'remote/transfer_consent.dart';
 import 'state/locale_state.dart';
 import 'ui/common/third_party_licenses.dart';
+import 'ui/remote/transfer_consent_dialog.dart';
 import 'ui/settings/font_licenses.dart';
 import 'ui/tavern/tavern_home_page.dart';
 import 'ui/theme/theme.dart';
@@ -33,5 +35,5 @@ Future<void> _startApp() async {
   // through AnnotatedRegion(dshSystemOverlay(...)).
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(dshSystemOverlay(PlatformDispatcher.instance.platformBrightness));
-  runApp(const ProviderScope(child: DshApp()));
+  runApp(ProviderScope(overrides: [remoteTransferConsentProvider.overrideWithValue(confirmRemoteTransfer)], child: const DshApp()));
 }

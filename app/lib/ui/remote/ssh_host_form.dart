@@ -6,21 +6,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../remote/ssh/key_generation.dart';
 import '../../remote/ssh/ssh_link.dart';
 import '../../state/attachments.dart';
 import '../../state/connection_state.dart';
 import '../../state/hosts_state.dart';
-import '../providers/provider_widgets.dart' show FormFieldBlock, FormFieldGroup;
 import '../common/app_dialog.dart';
+import '../common/brief_notice.dart';
+import '../common/discard_guard.dart';
+import '../common/smooth_size.dart';
+import '../providers/provider_widgets.dart' show FormFieldBlock, FormFieldGroup;
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'host_key_dialog.dart';
 import 'link_progress.dart';
-import '../common/discard_guard.dart';
-import '../common/smooth_size.dart';
-import '../common/brief_notice.dart';
 
 /// Add or edit an SSH host, with a "测试连接" that runs the real connect flow
 /// and shows each step.
@@ -408,6 +409,26 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> {
 
   /// A key file from the phone (Download, a file manager, a cloud drive), for
   /// people who'd rather not move a private key through the clipboard.
+  Future<void> _generateKey() async {
+    try {
+      final key = await generateSshKey();
+      if (!mounted) return;
+      _privateKey.text = key.toPem();
+      _passphrase.clear();
+      _edited(_F.key);
+      await showAppDialog<void>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(context.l10n.remoteGeneratedPublicKey),
+          content: SelectableText(sshAuthorizedKey(key)),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.commonCancel))],
+        ),
+      );
+    } catch (_) {
+      if (mounted) showBriefNotice(context, context.l10n.remoteKeyGenerationFailed);
+    }
+  }
+
   Future<void> _importKey() async {
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -578,6 +599,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            _SmallTextButton(label: l10n.remoteGenerateKey, onPressed: _generateKey),
                             _SmallTextButton(label: l10n.remoteImportKeyFile, onPressed: _importKey),
                             _SmallTextButton(label: l10n.commonPaste, onPressed: _pasteKey),
                           ],

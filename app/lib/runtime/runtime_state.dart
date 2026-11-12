@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../state/settings_state.dart';
 import '../state/read_list_epoch.dart';
+import '../state/settings_state.dart';
 import 'runtime_bridge.dart';
+import 'shellbox/shellbox_runtime_bridge.dart';
 
-final runtimeBridgeProvider = Provider<RuntimeBridge>((ref) => RuntimeBridge());
+final runtimeBridgeProvider = Provider<RuntimeBridge>((ref) => Platform.isIOS ? ShellBoxRuntimeBridge() : RuntimeBridge());
 
 /// [RuntimeBridge.batteryExempt]; invalidate to read it again.
 final batteryExemptProvider = FutureProvider<bool?>((ref) => ref.watch(runtimeBridgeProvider).batteryExempt());

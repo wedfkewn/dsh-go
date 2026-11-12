@@ -93,10 +93,11 @@ final secretStoreProvider = Provider<SecretStore>((ref) => SecureSecretStore());
 // ── Saved SSH hosts ──────────────────────────────────────────────────────────
 
 class HostsState {
-  const HostsState({this.ssh = const [], this.loaded = false});
+  const HostsState({this.ssh = const [], this.loaded = false, this.storageFailed = false});
 
   final List<SshHostConfig> ssh;
   final bool loaded;
+  final bool storageFailed;
 
   SshHostConfig? sshById(String id) {
     for (final h in ssh) {
@@ -106,7 +107,7 @@ class HostsState {
   }
 }
 
-/// Saved SSH hosts: configs in SharedPreferences, secrets in [SecretStore].
+/// Saved SSH hosts and credentials in [SecretStore]. Migrates legacy preferences.
 class HostsController extends Notifier<HostsState> {
   static const prefsKey = 'remote_ssh_hosts';
 
@@ -115,7 +116,7 @@ class HostsController extends Notifier<HostsState> {
 
   @override
   HostsState build() {
-    _loaded = _load();
+    _loaded = _loadSafely();
     return const HostsState();
   }
 
@@ -123,38 +124,52 @@ class HostsController extends Notifier<HostsState> {
   /// early save can't clobber what's on disk).
   Future<void> get ready => _loaded;
 
-  Future<void> _load() async {
-    var hosts = const <SshHostConfig>[];
+  Future<void> _loadSafely() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(prefsKey);
-      if (raw != null) {
-        final list = jsonDecode(raw);
-        if (list is List) hosts = list.map(SshHostConfig.fromJson).whereType<SshHostConfig>().toList();
-      }
+      await _load();
     } catch (_) {
-      // No preferences backend (tests) or a corrupt entry: start empty.
+      if (ref.mounted) state = const HostsState(loaded: true, storageFailed: true);
+    }
+  }
+
+  Future<void> reload() async {
+    _loaded = _loadSafely();
+    await _loaded;
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    var raw = await _secrets.read(prefsKey);
+    final legacy = prefs.getString(prefsKey);
+    if (raw == null && legacy != null) {
+      // Publish to secure storage before deleting the legacy copy.
+      await _secrets.write(prefsKey, legacy);
+      raw = legacy;
+    }
+    if (legacy != null && !await prefs.remove(prefsKey)) {
+      throw StateError('ssh_host_metadata_migration_failed');
+    }
+    final hosts = <SshHostConfig>[];
+    if (raw != null) {
+      final list = jsonDecode(raw) as List;
+      hosts.addAll(list.map(SshHostConfig.fromJson).whereType<SshHostConfig>());
     }
     state = HostsState(ssh: hosts, loaded: true);
   }
 
   Future<bool> _persist(List<SshHostConfig> hosts) async {
+    await _secrets.write(prefsKey, jsonEncode([for (final h in hosts) h.toJson()]));
     state = HostsState(ssh: List.unmodifiable(hosts), loaded: true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return await prefs.setString(prefsKey, jsonEncode([for (final h in hosts) h.toJson()]));
-    } catch (_) {
-      return false;
-    }
+    return true;
   }
 
   /// Adds or replaces [config]. With [secrets], stores the one matching the
   /// auth method and deletes the other kind, so a host never keeps a stale
   /// password next to its key.
-  /// Returns the preferences write result. A false result does not undo the
-  /// in-memory config or any completed secret operations.
+  /// Storage failures propagate; a failed config write is not published.
   Future<bool> saveSsh(SshHostConfig config, {SshSecrets? secrets}) async {
     await _loaded;
+    if (state.storageFailed) throw StateError('ssh_host_storage_unavailable');
     ref.read(readListCredentialEpochProvider.notifier).advance();
     if (secrets != null) await _writeSecrets(config, secrets);
     final hosts = [...state.ssh];
@@ -190,13 +205,7 @@ class HostsController extends Notifier<HostsState> {
   }
 
   Future<SshSecrets> loadSecrets(String id) async {
-    Future<String?> get(String key) async {
-      try {
-        return await _secrets.read(key);
-      } catch (_) {
-        return null;
-      }
-    }
+    Future<String?> get(String key) => _secrets.read(key);
 
     return SshSecrets(
       password: await get(SshSecrets.passwordKey(id)),
@@ -211,9 +220,7 @@ class HostsController extends Notifier<HostsState> {
     await _loaded;
     await _persist([...state.ssh.where((h) => h.id != id)]);
     for (final key in [SshSecrets.passwordKey(id), SshSecrets.privateKeyKey(id), SshSecrets.passphraseKey(id), SshSecrets.attachTokenKey(id)]) {
-      try {
-        await _secrets.delete(key);
-      } catch (_) {}
+      await _secrets.delete(key);
     }
     unawaited(ref.read(activeHostProvider.notifier).forget((h) => h == HostRef.ssh(id)));
   }

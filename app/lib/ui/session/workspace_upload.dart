@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../remote/transfer_consent.dart';
+import '../../state/hosts_state.dart';
 import '../../state/attachments.dart';
 import '../../state/chat_error_text.dart';
 import '../../state/connection_state.dart';
@@ -67,6 +69,15 @@ class _WorkspaceUploadRowState extends ConsumerState<WorkspaceUploadRow> {
     if (client == null || !client.supportsWorkspaceUpload) {
       showBriefNotice(context, l10n.fileUploadFailed);
       return;
+    }
+    final host = ref.read(activeHostProvider);
+    if (!host.isLocal) {
+      final approved = await ref.read(remoteTransferConsentProvider)(RemoteTransfer(
+        destination: '${hostLabel(host.kind, ref.read(hostNameProvider(host)))} / ${widget.sessionId}',
+        items: [for (final file in files) '${file.name} (${file.size} B)'],
+      ));
+      if (!approved || !mounted || ref.read(activeHostProvider) != host ||
+          !identical(ref.read(activeConnectionProvider).value?.client, client)) return;
     }
     setState(() {
       _done = 0;
