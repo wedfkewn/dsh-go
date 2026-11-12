@@ -10,14 +10,14 @@ import 'shellbox_runtime_service.dart';
 ///
 /// Native contract (also docs/ios/shellbox-channel-contract.md):
 /// - status(): RuntimeStatus map; error may be String or {code, message}.
-///   Optional notices: List<String>, drained by native on each status call.
+///   Optional notices: `List<String>`, drained by native on each status call.
 /// - start({env, phoneStorage, mode, visualReplies}), stop(), restart(): null.
 /// - install(null or {dropKept: true}): null, only after installation completes.
-/// - reset({keep: List<String>}): null; keep is ResetKeep.wire.
-/// - logs({lines: int}): List<String>.
+/// - reset({keep: `List<String>`}): null; keep is ResetKeep.wire.
+/// - logs({lines: int}): `List<String>`.
 /// - logSnapshot({lines: int}): {entries: [{seq: int, line: String,
 ///   stream: "stdout"|"stderr"|"system"}], throughSeq: int}.
-/// Missing native handlers become shellbox_<method>_unimplemented errors;
+/// Missing native handlers become `shellbox_<method>_unimplemented` errors;
 /// native PlatformException codes propagate unchanged. No simulated success.
 class ShellBoxRuntimeBridge extends RuntimeBridge {
   ShellBoxRuntimeBridge({ShellBoxRuntimeService? service, MethodChannel? channel})
