@@ -1,0 +1,15 @@
+# Local build-time fix for ShellBox 5dfc962fe5e03fe5bc6b869b8744312ebe6af627.
+# Node 24 V8 removed --no-expose-wasm; injecting it aborts Node before startup.
+# Its former Wasm-exposure suppression is no longer available through this flag.
+# Keep all other flags unchanged; Phase A probe 03 (JS + loopback HTTP) is the
+# regression tripwire. No replacement Wasm workaround or pin change is made.
+--- a/xX_main_Xx.h
++++ b/xX_main_Xx.h
+@@ -235,7 +235,6 @@
+             static const char *v8_flags[] = {
+                 "--jitless",
+                 "--no-lazy",
+-                "--no-expose-wasm",
+                 "--max-old-space-size=512",
+                 // Force single-threaded V8: in jitless mode worker threads
+                 // have no JIT to do, but V8 still creates them and they

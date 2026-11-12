@@ -17,12 +17,15 @@ fi
 source_dir="$(cd "$source_dir" && pwd)"
 # Keep math.S definitions matching gen.c; bits.S duplicates break force-load.
 # Accept an already-patched checkout so device/simulator rebuilds are repeatable.
-patch_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fix-duplicate-gadgets.patch"
-if git -C "$source_dir" apply --check "$patch_file"; then
-  git -C "$source_dir" apply "$patch_file"
-else
-  git -C "$source_dir" apply --reverse --check "$patch_file"
-fi
+patch_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for patch_name in fix-duplicate-gadgets.patch fix-node24-v8-flags.patch; do
+  patch_file="$patch_dir/$patch_name"
+  if git -C "$source_dir" apply --check "$patch_file"; then
+    git -C "$source_dir" apply "$patch_file"
+  else
+    git -C "$source_dir" apply --reverse --check "$patch_file"
+  fi
+done
 # Dependency installation exactly as upstream; no installation on Linux.
 brew install llvm lld ninja libarchive meson
 mkdir -p "$output_dir"

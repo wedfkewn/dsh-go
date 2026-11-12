@@ -33,3 +33,6 @@ site/build/
 
 # Release assets (tooling/release_assets.py)
 /dist/
+
+# iOS local-runtime payload archive (large, reproducible from payload/MANIFEST.json)
+payload/*.tar.gz
