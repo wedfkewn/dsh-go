@@ -2,6 +2,7 @@
 // from ST, and hand a chat back as .jsonl (the current path first, then its
 // other branches). Picking and sharing are providers so tests can swap them.
 
+import '../../share_code/system_share.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -36,7 +37,7 @@ final tavernChatSinkProvider = Provider<Future<void> Function(List<TavernChatFil
       await file.writeAsBytes(f.bytes, flush: true);
       shared.add(XFile(file.path, mimeType: tavernFileMime(f.fileName), name: f.fileName));
     }
-    await SharePlus.instance.share(ShareParams(files: shared, fileNameOverrides: [for (final f in files) f.fileName]));
+    await systemShare(ShareParams(files: shared, fileNameOverrides: [for (final f in files) f.fileName]));
   },
 );
 

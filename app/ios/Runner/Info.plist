@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Select photos to attach to a conversation or customize the app.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Take a photo to attach to a conversation or scan a connection code.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Unlock DSH Go when you enable app lock.</string>
     <key>NSSupportsLiveActivities</key><true/>
     <key>FlutterDeepLinkingEnabled</key><false/>
     <key>CFBundleURLTypes</key>

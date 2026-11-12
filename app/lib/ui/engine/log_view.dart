@@ -1,3 +1,4 @@
+import '../../share_code/system_share.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -204,6 +205,6 @@ abstract final class LogActions {
 
   static Future<void> share(List<String> lines, {String? subject}) async {
     if (lines.isEmpty) return;
-    await SharePlus.instance.share(ShareParams(text: joined(lines), subject: subject ?? appL10n.phoneLogShareTitle));
+    await systemShare(ShareParams(text: joined(lines), subject: subject ?? appL10n.phoneLogShareTitle));
   }
 }

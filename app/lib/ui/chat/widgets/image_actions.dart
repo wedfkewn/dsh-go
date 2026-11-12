@@ -1,6 +1,7 @@
 // Pictures in a conversation. Long-press one for 「保存到相册」 / 「分享」; the
 // full-screen viewer has the same save key.
 
+import '../../../share_code/system_share.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -69,7 +70,7 @@ Future<void> shareImageFile(BuildContext context, ImageBytes load, {String? name
   try {
     final image = await galleryImage(await load());
     final file = galleryFileName(name, image.mime);
-    await SharePlus.instance.share(
+    await systemShare(
       ShareParams(
         files: [XFile.fromData(image.bytes, mimeType: image.mime, name: file)],
         fileNameOverrides: [file],

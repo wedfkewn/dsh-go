@@ -1,6 +1,7 @@
 // Portions derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -15,7 +16,7 @@ import '../../pets/pet_overlay_bridge.dart';
 import '../../state/adaptive_layout_state.dart';
 import '../../state/drawer_view_state.dart' show drawerSelectionProvider;
 import '../../state/quick_panel_state.dart';
-import '../../state/sessions_state.dart' show currentSessionProvider;
+import '../../state/sessions_state.dart' show currentSessionProvider, sessionsProvider;
 import '../bots/bot_alerts.dart';
 import '../chat/chat_screen.dart';
 import '../chat/composer_toast.dart' show composerToastGap;
@@ -100,10 +101,17 @@ class _HomeShellState extends ConsumerState<HomeShell> with TickerProviderStateM
 
   /// 「宠物设置」 from the floating pet's menu (every tap, not deduplicated).
   StreamSubscription<void>? _petSettings;
+  AppLifecycleListener? _iosResume;
 
   @override
   void initState() {
     super.initState();
+    if (Platform.isIOS) {
+      _iosResume = AppLifecycleListener(onResume: () {
+        // Refresh from the host after suspension; a failed read retains the list.
+        unawaited(ref.read(sessionsProvider.notifier).refresh());
+      });
+    }
     _drawer.addListener(() {
       final open = _drawer.value > 0;
       if (open != _open) setState(() => _open = open);
@@ -119,6 +127,7 @@ class _HomeShellState extends ConsumerState<HomeShell> with TickerProviderStateM
 
   @override
   void dispose() {
+    _iosResume?.dispose();
     unawaited(_petSettings?.cancel());
     _drawer.dispose();
     _quickPanel.dispose();

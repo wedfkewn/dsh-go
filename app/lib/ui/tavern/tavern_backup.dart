@@ -3,6 +3,7 @@
 // over it after asking. Files go by path, not through memory: a backup holds
 // every card, chat and Live2D model.
 
+import '../../share_code/system_share.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -25,7 +26,7 @@ final tavernBackupDirProvider = Provider<Future<Directory> Function()>((ref) => 
 /// oneself). Tests swap it.
 final tavernBackupShareProvider = Provider<Future<void> Function(String path, String name)>(
   (ref) => (path, name) async {
-    await SharePlus.instance.share(
+    await systemShare(
       ShareParams(
         files: [XFile(path, mimeType: 'application/zip', name: name)],
         fileNameOverrides: [name],

@@ -1,0 +1,7 @@
+{
+  "iosAppLock": "应用锁",
+  "iosAppLockDetail": "返回应用时使用面容 ID、触控 ID 或设备密码解锁。",
+  "iosUnlock": "解锁 DSH Go",
+  "iosAuthFailed": "身份验证未完成，请使用生物识别或设备密码重试。",
+  "iosAuthUnavailable": "设备身份验证不可用，请先在系统设置中设置设备密码。"
+}

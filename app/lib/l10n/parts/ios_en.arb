@@ -1,0 +1,7 @@
+{
+  "iosAppLock": "App lock",
+  "iosAppLockDetail": "Use Face ID, Touch ID or your device passcode when returning to the app.",
+  "iosUnlock": "Unlock DSH Go",
+  "iosAuthFailed": "Authentication did not complete. Retry using biometrics or your device passcode.",
+  "iosAuthUnavailable": "Device authentication is unavailable. Set a device passcode in Settings before enabling app lock."
+}

@@ -3,6 +3,7 @@
 // log upload to DeepSeek.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import '../share_code/profile_share_sheet.dart';
 import '../share_hosted/hosted_links_tile.dart';
 import '../shell/page_frame.dart';
 import 'settings_widgets.dart';
+import 'app_lock_widgets.dart';
 import 'usage_stats_section.dart';
 
 class PrivacyPage extends ConsumerWidget {
@@ -30,6 +32,7 @@ class PrivacyPage extends ConsumerWidget {
     return AppPage.list(
       title: l10n.hubPrivacy,
       children: [
+        if (Platform.isIOS) const AppLockTile(),
         SettingsSection(
           title: l10n.hubPrivacySharing,
           children: [

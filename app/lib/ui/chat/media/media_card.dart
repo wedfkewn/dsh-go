@@ -16,6 +16,7 @@
 // Video uses a supplied or locally extracted poster and opens the native viewer.
 // A remote video is downloaded only after the user opens it, never for scrolling.
 
+import '../../../share_code/system_share.dart';
 import 'dart:async';
 
 import 'package:dsh_client/dsh_client.dart';
@@ -908,7 +909,7 @@ Future<void> shareMediaItems(BuildContext context, WidgetRef ref, String session
       names.add(name);
     }
     if (files.isEmpty) return;
-    await SharePlus.instance.share(ShareParams(files: files, fileNameOverrides: names));
+    await systemShare(ShareParams(files: files, fileNameOverrides: names));
   } catch (_) {
     messenger?.showSnackBar(SnackBar(content: Text(l10n.chatShareFailed)));
   }

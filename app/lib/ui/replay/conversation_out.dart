@@ -3,6 +3,7 @@
 // hosted link (the share host's client, app/lib/share_hosted/). Seams: tests
 // record instead.
 
+import '../../share_code/system_share.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -62,7 +63,7 @@ class ConversationOut {
   final Future<void> Function(ShareParams params) _share;
 
   static Future<void> _systemShare(ShareParams params) async {
-    await SharePlus.instance.share(params);
+    await systemShare(params);
   }
 
   /// 「修复登录重复提交.dshgo」.

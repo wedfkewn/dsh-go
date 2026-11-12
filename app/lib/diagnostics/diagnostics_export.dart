@@ -2,6 +2,7 @@
 // sheet or the phone's Downloads — the way artifacts and conversation logs
 // go (`FilesChannel.saveToDownloads`, `SharePlus`).
 
+import '../share_code/system_share.dart';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -34,7 +35,7 @@ class DiagnosticsExporter {
   final DateTime Function() _clock;
 
   static Future<ShareResultStatus> _systemShare(ShareParams params) async =>
-      (await SharePlus.instance.share(params)).status;
+      (await systemShare(params)).status;
 
   /// Builds the bundle into the app cache (`diagnostics/`, older bundles
   /// replaced) and returns it.

@@ -1,6 +1,7 @@
 // Turning a share card into a PNG and handing it to the Android share sheet or
 // the photo album.
 
+import '../../share_code/system_share.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -57,7 +58,7 @@ class ShareExporter {
   final DateTime Function() _clock;
 
   static Future<void> _systemShare(ShareParams params) async {
-    await SharePlus.instance.share(params);
+    await systemShare(params);
   }
 
   /// `dsh-go-20261024-153012.png`.

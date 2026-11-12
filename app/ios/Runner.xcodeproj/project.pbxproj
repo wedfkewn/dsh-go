@@ -23,6 +23,7 @@
 		573520B481EA67D54B594BCC /* widgetAttributes */ = { isa = PBXBuildFile; fileRef = 20017C4520EC9675D24EE1C5; };
 		640C25198CB22A499C868EB1 /* widgetSource */ = { isa = PBXBuildFile; fileRef = 1E350E022F325AE1242B2BC9; };
 		491DA3A23DF992330792DB1A /* embedProduct */ = { isa = PBXBuildFile; fileRef = FFE6541DEFF151A9C6BD9402; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+D56000000000000000000001 /* NotifyPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D56000000000000000000002; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +78,7 @@
 		A514527612FC7C6A562F052C /* appEntitlements */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Runner/Runner.entitlements; sourceTree = SOURCE_ROOT; };
 		AA479413577B0E1B12D15897 /* widgetEntitlements */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PetLiveActivity/PetLiveActivity.entitlements; sourceTree = SOURCE_ROOT; };
 		FFE6541DEFF151A9C6BD9402 /* product */ = { isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = PetLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotifyPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,6 +145,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+                D56000000000000000000002 /* NotifyPlugin.swift */,
 				D51000000000000000000004 /* ShellBoxKernel.c */,
 				D51000000000000000000002 /* ShellBoxPlugin.m */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
@@ -308,6 +311,7 @@
 			files = (
 				74A91C8AAF87F617741C0CF7, D075770FD1165A62194A3992,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+                D56000000000000000000001 /* NotifyPlugin.swift in Sources */,
 				D51000000000000000000003 /* ShellBoxKernel.c in Sources */,
 				D51000000000000000000001 /* ShellBoxPlugin.m in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,

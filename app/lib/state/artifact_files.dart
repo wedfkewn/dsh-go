@@ -1,6 +1,7 @@
 // Getting a chat artifact onto the phone and handing it to Android (open,
 // share, save to Downloads).
 
+import '../share_code/system_share.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -74,7 +75,7 @@ class ArtifactFiles {
   final Future<Directory> Function() _cacheRoot;
 
   static Future<void> _systemShare(ShareParams params) async {
-    await SharePlus.instance.share(params);
+    await systemShare(params);
   }
 
   bool get isLocal => connection?.isLocal ?? false;

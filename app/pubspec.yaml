@@ -91,6 +91,7 @@ dependencies:
   # Full image decoding in the pet importer's background isolate. MIT.
   image: 4.12.0
   mobile_scanner: ^7.5.0
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

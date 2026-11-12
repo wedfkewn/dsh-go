@@ -2,6 +2,7 @@
 // app: the Host's ZIP of a conversation, handed to the share sheet or the
 // phone's Downloads instead of a browser download.
 
+import '../share_code/system_share.dart';
 import 'dart:io';
 
 import 'package:dsh_client/dsh_client.dart';
@@ -31,7 +32,7 @@ class SessionLogExporter {
   static const mime = 'application/zip';
 
   static Future<void> _systemShare(ShareParams params) async {
-    await SharePlus.instance.share(params);
+    await systemShare(params);
   }
 
   /// False over the relay tunnel: the download is an HTTP route.

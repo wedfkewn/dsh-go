@@ -1,6 +1,7 @@
 // Pieces the tavern's pages share: a character's picture, importing a card,
 // deleting with a confirmation, and the long-press action sheet.
 
+import '../../share_code/system_share.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -399,7 +400,7 @@ final tavernCardSinkProvider = Provider<Future<void> Function(String name, Uint8
     await dir.create(recursive: true);
     final file = File('${dir.path}/$name');
     await file.writeAsBytes(bytes, flush: true);
-    await SharePlus.instance.share(
+    await systemShare(
       ShareParams(
         files: [XFile(file.path, mimeType: mime, name: name)],
         fileNameOverrides: [name],
@@ -420,7 +421,7 @@ final tavernCardsSinkProvider = Provider<Future<void> Function(List<(String name
       await file.writeAsBytes(bytes, flush: true);
       shared.add(XFile(file.path, mimeType: 'image/png', name: name));
     }
-    await SharePlus.instance.share(
+    await systemShare(
       ShareParams(files: shared, fileNameOverrides: [for (final (name, _) in files) name]),
     );
   },
