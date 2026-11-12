@@ -1,23 +1,46 @@
+import 'package:flutter/services.dart';
+
 import '../local_runtime_service.dart';
 
-/// iOS integration placeholder. Does not invoke ShellBox or start DSH.
+/// Native iOS boundary. PlatformException codes describe incomplete operations;
+/// directory creation is never treated as successful runtime startup.
 final class ShellBoxRuntimeService implements LocalRuntimeService {
-  @override
-  Future<void> start() => throw UnimplementedError('shellbox_not_implemented');
+  ShellBoxRuntimeService({MethodChannel? channel})
+    : _channel = channel ?? const MethodChannel('dsh/shellbox');
+
+  final MethodChannel _channel;
 
   @override
-  Future<void> stop() => throw UnimplementedError('shellbox_not_implemented');
+  Future<void> start() => _channel.invokeMethod<void>('start');
 
   @override
-  Future<void> restart() => throw UnimplementedError('shellbox_not_implemented');
+  Future<void> stop() => _channel.invokeMethod<void>('stop');
 
   @override
-  Future<LocalRuntimeServiceStatus> status() async =>
-      const LocalRuntimeServiceStatus(
-        phase: LocalRuntimeServicePhase.unimplemented,
-        error: LocalRuntimeServiceError(
-          'shellbox_not_implemented',
-          'ShellBox native lifecycle is not implemented.',
-        ),
+  Future<void> restart() => _channel.invokeMethod<void>('restart');
+
+  @override
+  Future<LocalRuntimeServiceStatus> status() async {
+    final response = await _channel.invokeMapMethod<String, dynamic>('status');
+    if (response == null || response['phase'] != 'unimplemented') {
+      throw PlatformException(
+        code: 'shellbox_status_invalid_response',
+        message: 'Native ShellBox returned an unsupported status.',
       );
+    }
+    final error = response['error'];
+    if (error is! Map || error['code'] is! String || error['message'] is! String) {
+      throw PlatformException(
+        code: 'shellbox_status_invalid_response',
+        message: 'Native ShellBox returned an invalid error.',
+      );
+    }
+    return LocalRuntimeServiceStatus(
+      phase: LocalRuntimeServicePhase.unimplemented,
+      error: LocalRuntimeServiceError(
+        error['code'] as String,
+        error['message'] as String,
+      ),
+    );
+  }
 }

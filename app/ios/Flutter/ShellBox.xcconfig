@@ -1,0 +1,12 @@
+// The workflow exports RUNNER_TEMP. For local Xcode builds set
+// SHELLBOX_LIBS_ROOT to the output directory of build-ios-libs.sh.
+SHELLBOX_SOURCE_ROOT = $(SRCROOT)/../../third_party/shellbox-src
+SHELLBOX_LIBS_ROOT = $(RUNNER_TEMP)/shellbox-ios-libs
+SHELLBOX_BUILD_DIR[sdk=iphoneos*] = $(SHELLBOX_LIBS_ROOT)/build-ios-arm64
+SHELLBOX_BUILD_DIR[sdk=iphonesimulator*] = $(SHELLBOX_LIBS_ROOT)/build-iossim-arm64
+HEADER_SEARCH_PATHS = $(inherited) "$(SRCROOT)/../../runtime/shellbox" "$(SHELLBOX_SOURCE_ROOT)" "$(SHELLBOX_BUILD_DIR)"
+LIBRARY_SEARCH_PATHS = $(inherited) "$(SHELLBOX_BUILD_DIR)"
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) ISH_INTERNAL=1 GUEST_ARM64=1
+// Force-load the kernel wrapper's dependencies even before rootfs boot is
+// enabled, so the unsigned build actually exercises native symbol resolution.
+OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish_emu.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libfakefs.a" -lsqlite3 -lz
