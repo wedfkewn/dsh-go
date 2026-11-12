@@ -606,6 +606,7 @@ class _FailedActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final onRemote = this.onRemote;
     if (onRetry == null) {
       return onRemote == null
           ? const SizedBox.shrink()
@@ -620,7 +621,6 @@ class _FailedActions extends StatelessWidget {
       onPressed: onRetry,
       child: Text(l10n.commonRetry, textAlign: TextAlign.center),
     );
-    final onRemote = this.onRemote;
     if (onRemote == null) return retry;
     final remote = OutlinedButton(
       key: const ValueKey('setup-use-remote'),
