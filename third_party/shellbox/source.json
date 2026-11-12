@@ -1,7 +1,7 @@
 {
   "url": "https://github.com/lollipopkit/ShellBox",
   "commit": "5dfc962fe5e03fe5bc6b869b8744312ebe6af627",
-  "checkout_path": "third_party/ShellBox",
+  "checkout_path": "third_party/shellbox-src",
   "integration": "manifest-only; submodule add failed (read-only .git)",
   "license": "GPL-3.0; some contributions additionally GPL-2.0; LICENSE.IOS applies"
 }

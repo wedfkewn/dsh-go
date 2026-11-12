@@ -27,7 +27,7 @@ Xcode、SDK 和 Homebrew 工具版本没有固定，依赖 Runner 镜像与当�
 5. 在 `app/` 运行 `flutter analyze`。
 6. 读取 `third_party/shellbox/source.json` 的 URL、commit 和 checkout_path，
    检出 `https://github.com/lollipopkit/ShellBox` 的
-   `5dfc962fe5e03fe5bc6b869b8744312ebe6af627` 到 `third_party/ShellBox`。
+   `5dfc962fe5e03fe5bc6b869b8744312ebe6af627` 到 `third_party/shellbox-src`（与已提交的许可证副本目录分开，避免 checkout 覆盖冲突）。
    调用 `bash runtime/shellbox/build-ios-libs.sh SOURCE_CHECKOUT OUTPUT_DIRECTORY`，
    输出到 Runner 临时目录；生成设备/模拟器 arm64 的三个静态库，只构建、不签名。
 7. `app/ios` 不存在时，在 Runner 的 `app/` 运行官方命令
