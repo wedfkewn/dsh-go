@@ -18,6 +18,11 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		D51000000000000000000001 /* ShellBoxPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000002 /* ShellBoxPlugin.m */; };
 		D51000000000000000000003 /* ShellBoxKernel.c in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000004 /* ShellBoxKernel.c */; };
+		74A91C8AAF87F617741C0CF7 /* pluginSource */ = { isa = PBXBuildFile; fileRef = 23D518D49B6E8E558011F937; };
+		D075770FD1165A62194A3992 /* appAttributes */ = { isa = PBXBuildFile; fileRef = 20017C4520EC9675D24EE1C5; };
+		573520B481EA67D54B594BCC /* widgetAttributes */ = { isa = PBXBuildFile; fileRef = 20017C4520EC9675D24EE1C5; };
+		640C25198CB22A499C868EB1 /* widgetSource */ = { isa = PBXBuildFile; fileRef = 1E350E022F325AE1242B2BC9; };
+		491DA3A23DF992330792DB1A /* embedProduct */ = { isa = PBXBuildFile; fileRef = FFE6541DEFF151A9C6BD9402; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +33,7 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
+		06DEDB05BBDD1B99E528408B /* widgetProxy */ = { isa = PBXContainerItemProxy; containerPortal = 97C146E61CF9000F007C117D; proxyType = 1; remoteGlobalIDString = F087B9CD0DA756E32A61C96B; remoteInfo = PetLiveActivity; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -41,6 +47,7 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		828E5569990F1E633BB7FEB4 /* embedWidget */ = { isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (491DA3A23DF992330792DB1A,); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +70,13 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D51000000000000000000002 /* ShellBoxPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ShellBoxPlugin.m; sourceTree = "<group>"; };
 		D51000000000000000000004 /* ShellBoxKernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ShellBoxKernel.c; sourceTree = "<group>"; };
+		23D518D49B6E8E558011F937 /* plugin */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/PetLiveActivityPlugin.swift; sourceTree = SOURCE_ROOT; };
+		20017C4520EC9675D24EE1C5 /* attributes */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/PetActivityAttributes.swift; sourceTree = SOURCE_ROOT; };
+		1E350E022F325AE1242B2BC9 /* widget */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetLiveActivity/PetLiveActivity.swift; sourceTree = SOURCE_ROOT; };
+		CDA593B9C14ED658B1250A32 /* widgetInfo */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PetLiveActivity/Info.plist; sourceTree = SOURCE_ROOT; };
+		A514527612FC7C6A562F052C /* appEntitlements */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Runner/Runner.entitlements; sourceTree = SOURCE_ROOT; };
+		AA479413577B0E1B12D15897 /* widgetEntitlements */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PetLiveActivity/PetLiveActivity.entitlements; sourceTree = SOURCE_ROOT; };
+		FFE6541DEFF151A9C6BD9402 /* product */ = { isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = PetLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +88,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A987392A9145C61D2E1C47AF /* widgetFrameworks */ = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -100,6 +115,7 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
+				7BD37D27403527415CF7F843 /* petGroup */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -110,6 +126,7 @@
 		97C146EF1CF9000F007C117D /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				FFE6541DEFF151A9C6BD9402 /* product */,
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
@@ -134,6 +151,7 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		7BD37D27403527415CF7F843 /* petGroup */ = { isa = PBXGroup; name = PetLiveActivity; sourceTree = "<group>"; children = (23D518D49B6E8E558011F937,20017C4520EC9675D24EE1C5,1E350E022F325AE1242B2BC9,CDA593B9C14ED658B1250A32,A514527612FC7C6A562F052C,AA479413577B0E1B12D15897,); };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -163,11 +181,13 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				828E5569990F1E633BB7FEB4,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1045C0DF3A8BFCA92D5ABA88,
 			);
 			name = Runner;
 
@@ -175,6 +195,7 @@
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F087B9CD0DA756E32A61C96B /* widgetTarget */ = { isa = PBXNativeTarget; buildConfigurationList = 5B8F949E214CB6C747FAC73C; buildPhases = (3514CC0005D9917A6F38F628, A987392A9145C61D2E1C47AF, 181DE7E43A1F74F9AFDE8457,); buildRules = (); dependencies = (); name = PetLiveActivity; productName = PetLiveActivity; productReference = FFE6541DEFF151A9C6BD9402; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -209,6 +230,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				F087B9CD0DA756E32A61C96B,
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
@@ -234,6 +256,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		181DE7E43A1F74F9AFDE8457 /* widgetResources */ = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -283,6 +306,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				74A91C8AAF87F617741C0CF7, D075770FD1165A62194A3992,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				D51000000000000000000003 /* ShellBoxKernel.c in Sources */,
 				D51000000000000000000001 /* ShellBoxPlugin.m in Sources */,
@@ -291,6 +315,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3514CC0005D9917A6F38F628 /* widgetSources */ = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (640C25198CB22A499C868EB1, 573520B481EA67D54B594BCC,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -299,6 +324,7 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		1045C0DF3A8BFCA92D5ABA88 /* widgetDependency */ = { isa = PBXTargetDependency; target = F087B9CD0DA756E32A61C96B; targetProxy = 06DEDB05BBDD1B99E528408B; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -384,6 +410,7 @@
 
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -567,6 +594,7 @@
 
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -591,6 +619,7 @@
 
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -604,6 +633,57 @@
 			};
 			name = Release;
 		};
+		1B32F5569A67A0DA86F7058E /* widgetDebug */ = { isa = XCBuildConfiguration; baseConfigurationReference = 9740EEB31CF90195004384FC; buildSettings = { APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+CODE_SIGN_IDENTITY = "";
+DEVELOPMENT_TEAM = "";
+CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = PetLiveActivity/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",);
+PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshApp.PetLiveActivity;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+		6D2909EE0E480C5C3CCC687F /* widgetRelease */ = { isa = XCBuildConfiguration; baseConfigurationReference = 9740EEB31CF90195004384FC; buildSettings = { APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+CODE_SIGN_IDENTITY = "";
+DEVELOPMENT_TEAM = "";
+CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = PetLiveActivity/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",);
+PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshApp.PetLiveActivity;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2";  }; name = Release; };
+		94D290082F4502BC7316EB1D /* widgetProfile */ = { isa = XCBuildConfiguration; baseConfigurationReference = 9740EEB31CF90195004384FC; buildSettings = { APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+CODE_SIGN_IDENTITY = "";
+DEVELOPMENT_TEAM = "";
+CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = PetLiveActivity/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",);
+PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshApp.PetLiveActivity;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2";  }; name = Profile; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -637,6 +717,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		5B8F949E214CB6C747FAC73C /* widgetConfigs */ = { isa = XCConfigurationList; buildConfigurations = (1B32F5569A67A0DA86F7058E,6D2909EE0E480C5C3CCC687F,94D290082F4502BC7316EB1D,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 	};

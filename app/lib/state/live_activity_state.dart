@@ -3,9 +3,12 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../notify/live_activity.dart';
+import '../notify/pet_live_activity.dart';
+import '../pets/pet_overlay_actions.dart' show petActionHost;
 import '../pets/pet_signals.dart';
 import '../pets/pet_state.dart';
 import 'notify_state.dart';
@@ -47,6 +50,10 @@ final livePushProvider = Provider<LivePush>((ref) {
 /// Watch it to keep the live activity fed (with the pet overlay's bridge, in
 /// both 原生 and 网页 modes). Equal pushes are not sent twice.
 final liveActivityBridgeProvider = Provider<void>((ref) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    ref.watch(iosPetLiveActivityBridgeProvider);
+    return;
+  }
   ref.listen<LivePush>(livePushProvider, (previous, next) {
     if (previous == next) return;
     unawaited(ref.read(notifyChannelProvider).live(next));
@@ -57,3 +64,51 @@ final liveActivityBridgeProvider = Provider<void>((ref) {
 final liveSystemStatusProvider = FutureProvider<LiveSystemStatus>(
   (ref) => ref.watch(notifyChannelProvider).liveStatus(),
 );
+
+/// Exposes native failures to consumers without breaking the in-app pet.
+final petLiveActivityStatusProvider = NotifierProvider<PetLiveActivityStatus, AsyncValue<String?>>(
+  PetLiveActivityStatus.new,
+);
+
+class PetLiveActivityStatus extends Notifier<AsyncValue<String?>> {
+  @override
+  AsyncValue<String?> build() => const AsyncData(null);
+
+  void report(AsyncValue<String?> value) => state = value;
+}
+
+final petLiveActivityChannelProvider = Provider<PetLiveActivityChannel>((ref) => PetLiveActivityChannel());
+
+final iosPetLiveActivityBridgeProvider = Provider<void>((ref) {
+  final bridge = ref.watch(petLiveActivityChannelProvider);
+  Future<void> send(LivePush push) async {
+    final status = await AsyncValue.guard(() => bridge.push(push));
+    if (ref.mounted) ref.read(petLiveActivityStatusProvider.notifier).report(status);
+  }
+
+  bridge.channel.setMethodCallHandler((call) async {
+    if (call.method != 'link') return;
+    final args = call.arguments;
+    final uri = args is Map && args['uri'] is String ? Uri.tryParse(args['uri'] as String) : null;
+    if (uri == null || uri.scheme != 'dshgo' || uri.host != 'pet-session') return;
+    final host = petActionHost(uri.queryParameters['host']);
+    final session = uri.queryParameters['sessionId'];
+    if (host == null || session == null || session.isEmpty || session.length > 200) return;
+    ref.read(chatAlertsProvider.notifier).open(host, session);
+  });
+  ref.onDispose(() => bridge.channel.setMethodCallHandler(null));
+  unawaited(() async {
+    try {
+      await bridge.channel.invokeMethod<void>('ready');
+    } catch (error, stack) {
+      if (ref.mounted) ref.read(petLiveActivityStatusProvider.notifier).report(AsyncError(error, stack));
+    }
+  }());
+  ref.listen<LivePush>(livePushProvider, (previous, next) {
+    if (previous != next) unawaited(send(next));
+  }, fireImmediately: true);
+  // Retry a foreground-only request when the user returns; no timer/retry loop.
+  ref.listen<bool>(appForegroundProvider, (previous, next) {
+    if (next && previous == false) unawaited(send(ref.read(livePushProvider)));
+  });
+});
