@@ -15,6 +15,14 @@ fi
   exit 1
 }
 source_dir="$(cd "$source_dir" && pwd)"
+# Keep math.S definitions matching gen.c; bits.S duplicates break force-load.
+# Accept an already-patched checkout so device/simulator rebuilds are repeatable.
+patch_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fix-duplicate-gadgets.patch"
+if git -C "$source_dir" apply --check "$patch_file"; then
+  git -C "$source_dir" apply "$patch_file"
+else
+  git -C "$source_dir" apply --reverse --check "$patch_file"
+fi
 # Dependency installation exactly as upstream; no installation on Linux.
 brew install llvm lld ninja libarchive meson
 mkdir -p "$output_dir"

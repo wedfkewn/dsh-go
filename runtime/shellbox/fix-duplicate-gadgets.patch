@@ -1,0 +1,47 @@
+# Local dsh-Go fix for lollipopkit/ShellBox, pinned commit
+# 5dfc962fe5e03fe5bc6b869b8744312ebe6af627 (third_party/shellbox/source.json).
+# Source: asbestos/guest-arm64/gadgets-aarch64/bits.S; retain upstream licenses
+# (GPL-3.0, GPL-2.0 contribution terms and LICENSE.IOS in that checkout).
+# Remove duplicate globals; math.S implements the gen.c code-stream contracts:
+# gen.c:1763 SXTW has no operand, :1785/:1788 UXTH/UXTB consume sf,
+# :3977/:4000 REV32 consumes packed rd/rn/sf. The bits.S versions of
+# UXTH/UXTB/REV32 do not consume these words and cannot replace math.S.
+# rev32_64 and rev32_vec are distinct symbols and remain untouched.
+--- a/asbestos/guest-arm64/gadgets-aarch64/bits.S
++++ b/asbestos/guest-arm64/gadgets-aarch64/bits.S
+@@ -103,23 +103,6 @@
+     mov _tmp, x0
+     gret
+ 
+-// SXTW Xd, Wn - Sign extend word
+-.gadget sxtw
+-    sxtw _tmp, w0
+-    gret
+-
+-// UXTB Xd, Wn - Zero extend byte
+-.gadget uxtb
+-    uxtb w0, w0
+-    mov _tmp, x0
+-    gret
+-
+-// UXTH Xd, Wn - Zero extend halfword
+-.gadget uxth
+-    uxth w0, w0
+-    mov _tmp, x0
+-    gret
+-
+ /*
+  * Bit counting operations
+  */
+@@ -159,11 +142,6 @@
+     rev _tmp, _tmp
+     gret
+ 
+-.gadget rev32
+-    rev w0, w0
+-    mov _tmp, x0
+-    gret
+-
+ // REV16 Xd, Xn - Reverse bytes in halfwords
+ .gadget rev16_64
+     rev16 _tmp, _tmp
