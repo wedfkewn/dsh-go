@@ -9363,6 +9363,22 @@ class L10nEn extends L10n {
   String get hubQuickPanelItemsNone => 'Nothing chosen: a left swipe won\'t open it';
 
   @override
+  String get iosAppLock => 'App lock';
+
+  @override
+  String get iosAppLockDetail => 'Use Face ID, Touch ID or your device passcode when returning to the app.';
+
+  @override
+  String get iosUnlock => 'Unlock DSH Go';
+
+  @override
+  String get iosAuthFailed => 'Authentication did not complete. Retry using biometrics or your device passcode.';
+
+  @override
+  String get iosAuthUnavailable =>
+      'Device authentication is unavailable. Set a device passcode in Settings before enabling app lock.';
+
+  @override
   String get launchScreenTitle => 'Launch screen';
 
   @override
@@ -16486,6 +16502,34 @@ class L10nEn extends L10n {
 
   @override
   String get searchKwRemoteCompactHistory => 'compact slim lite history tools transfer bandwidth remote';
+
+  @override
+  String get remoteTransferConfirmTitle => 'Send data to this remote host?';
+
+  @override
+  String get remoteTransferConfirmHelp =>
+      'Only the listed message and files will be sent. Switching hosts does not transfer local sessions or files.';
+
+  @override
+  String get remoteTransferConfirmSend => 'Confirm transfer';
+
+  @override
+  String get remoteGenerateKey => 'Generate';
+
+  @override
+  String get remoteGeneratedPublicKey => 'Public key — install on the host, then save';
+
+  @override
+  String get remoteKeyGenerationFailed => 'SSH key generation failed';
+
+  @override
+  String get remoteLocalMode => 'Local · This phone';
+
+  @override
+  String get remoteRemoteMode => 'Remote';
+
+  @override
+  String get remoteHostStorageRetry => 'Secure host storage is unavailable. Tap to retry.';
 
   @override
   String get remotePairEntry => 'Pair a computer by scanning';

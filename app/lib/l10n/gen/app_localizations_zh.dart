@@ -8870,6 +8870,21 @@ class L10nZh extends L10n {
   String get hubQuickPanelItemsNone => '没有选择，左滑不会打开';
 
   @override
+  String get iosAppLock => '应用锁';
+
+  @override
+  String get iosAppLockDetail => '返回应用时使用面容 ID、触控 ID 或设备密码解锁。';
+
+  @override
+  String get iosUnlock => '解锁 DSH Go';
+
+  @override
+  String get iosAuthFailed => '身份验证未完成，请使用生物识别或设备密码重试。';
+
+  @override
+  String get iosAuthUnavailable => '设备身份验证不可用，请先在系统设置中设置设备密码。';
+
+  @override
   String get launchScreenTitle => '启动画面';
 
   @override
@@ -15662,6 +15677,33 @@ class L10nZh extends L10n {
 
   @override
   String get searchKwRemoteCompactHistory => '精简 简洁 历史 工具 传输 流量 远程 compact slim lite';
+
+  @override
+  String get remoteTransferConfirmTitle => '向此远程主机发送数据？';
+
+  @override
+  String get remoteTransferConfirmHelp => '仅发送列出的消息与文件。切换主机不会传输本地会话或文件。';
+
+  @override
+  String get remoteTransferConfirmSend => '确认传输';
+
+  @override
+  String get remoteGenerateKey => '生成';
+
+  @override
+  String get remoteGeneratedPublicKey => '公钥：请在主机上安装，然后保存';
+
+  @override
+  String get remoteKeyGenerationFailed => 'SSH 密钥生成失败';
+
+  @override
+  String get remoteLocalMode => '本地 · 本机';
+
+  @override
+  String get remoteRemoteMode => '远程';
+
+  @override
+  String get remoteHostStorageRetry => '安全主机存储不可用，点按重试。';
 
   @override
   String get remotePairEntry => '扫码配对电脑';

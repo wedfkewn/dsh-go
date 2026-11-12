@@ -16358,6 +16358,36 @@ abstract class L10n {
   /// **'没有选择，左滑不会打开'**
   String get hubQuickPanelItemsNone;
 
+  /// No description provided for @iosAppLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用锁'**
+  String get iosAppLock;
+
+  /// No description provided for @iosAppLockDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回应用时使用面容 ID、触控 ID 或设备密码解锁。'**
+  String get iosAppLockDetail;
+
+  /// No description provided for @iosUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解锁 DSH Go'**
+  String get iosUnlock;
+
+  /// No description provided for @iosAuthFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'身份验证未完成，请使用生物识别或设备密码重试。'**
+  String get iosAuthFailed;
+
+  /// No description provided for @iosAuthUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备身份验证不可用，请先在系统设置中设置设备密码。'**
+  String get iosAuthUnavailable;
+
   /// No description provided for @launchScreenTitle.
   ///
   /// In zh, this message translates to:
@@ -28603,6 +28633,60 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'精简 简洁 历史 工具 传输 流量 远程 compact slim lite'**
   String get searchKwRemoteCompactHistory;
+
+  /// No description provided for @remoteTransferConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'向此远程主机发送数据？'**
+  String get remoteTransferConfirmTitle;
+
+  /// No description provided for @remoteTransferConfirmHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅发送列出的消息与文件。切换主机不会传输本地会话或文件。'**
+  String get remoteTransferConfirmHelp;
+
+  /// No description provided for @remoteTransferConfirmSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认传输'**
+  String get remoteTransferConfirmSend;
+
+  /// No description provided for @remoteGenerateKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成'**
+  String get remoteGenerateKey;
+
+  /// No description provided for @remoteGeneratedPublicKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'公钥：请在主机上安装，然后保存'**
+  String get remoteGeneratedPublicKey;
+
+  /// No description provided for @remoteKeyGenerationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 密钥生成失败'**
+  String get remoteKeyGenerationFailed;
+
+  /// No description provided for @remoteLocalMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地 · 本机'**
+  String get remoteLocalMode;
+
+  /// No description provided for @remoteRemoteMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程'**
+  String get remoteRemoteMode;
+
+  /// No description provided for @remoteHostStorageRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全主机存储不可用，点按重试。'**
+  String get remoteHostStorageRetry;
 
   /// No description provided for @remotePairEntry.
   ///
