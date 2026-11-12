@@ -23,7 +23,7 @@ jobs:
       run:
         shell: bash
     env:
-      LOG_DIR: ${{ runner.temp }}/ios-check-logs
+      LOG_DIR: ${{ github.workspace }}/ios-check-logs
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,6 +121,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-check-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/ios-check-logs/*.log
+          path: ${{ github.workspace }}/ios-check-logs/*.log
           if-no-files-found: warn
           retention-days: 7
