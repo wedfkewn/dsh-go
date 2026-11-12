@@ -9,4 +9,4 @@ LIBRARY_SEARCH_PATHS = $(inherited) "$(SHELLBOX_BUILD_DIR)"
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) ISH_INTERNAL=1 GUEST_ARM64=1
 // Force-load the kernel wrapper's dependencies even before rootfs boot is
 // enabled, so the unsigned build actually exercises native symbol resolution.
-OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish_emu.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libfakefs.a" -lsqlite3 -lz
+OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libish_emu.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libfakefs.a" -Wl,-force_load,"$(SHELLBOX_BUILD_DIR)/libfakefs_tools.a" "$(SHELLBOX_BUILD_DIR)/libarchive.a" -lsqlite3 -lz

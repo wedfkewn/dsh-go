@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build-only skeleton, uncompiled/unverified. Intended host: macos-15 ARM64.
+# Build libraries for Runner. iOS compilation requires macOS ARM64.
 # Adapted from pinned ShellBox .github/workflows/static-libs.yml:102-157.
-# No workflow, signing, Runner, rootfs or DSH startup is provided.
+# No signing or runtime startup is performed.
 set -euo pipefail
 source_dir="${1:?usage: bash build-ios-libs.sh SOURCE_CHECKOUT OUTPUT_DIRECTORY}"
 output_dir="${2:?provide a fresh output directory outside the source checkout}"
@@ -26,10 +26,20 @@ for patch_name in fix-duplicate-gadgets.patch fix-node24-v8-flags.patch; do
     git -C "$source_dir" apply --reverse --check "$patch_file"
   fi
 done
-# Dependency installation exactly as upstream; no installation on Linux.
-brew install llvm lld ninja libarchive meson
+# Upstream host tools plus CMake for the new iOS libarchive source build.
+brew install llvm lld ninja libarchive meson cmake
 mkdir -p "$output_dir"
 cd "$output_dir"
+output_dir="$PWD"
+# Pinned source, never a Homebrew macOS bottle in the iOS link.
+archive_tar=libarchive-3.8.11.tar.xz
+if [[ ! -f "$archive_tar" ]]; then
+  curl --fail --location https://www.libarchive.org/downloads/"$archive_tar" -o "$archive_tar"
+fi
+printf '%s  %s\n' a3dc0872b1b39da34dc18ef1b944f0f11ffd37425d70ae04be679279f1cf43d2 "$archive_tar" | shasum -a 256 -c -
+if [[ ! -d libarchive-3.8.11 ]]; then
+  tar -xf "$archive_tar"
+fi
 build() {
   local name="$1" sdk="$2" min="$3" sysroot
   sysroot="$(xcrun --sdk "$sdk" --show-sdk-path)"
@@ -53,11 +63,44 @@ cpu_family = 'aarch64'
 cpu = 'aarch64'
 endian = 'little'
 CROSS
-  meson setup "build-$name" "$source_dir" -Dguest_arch=arm64 \
+  local meson_options=(setup)
+  if [[ -f "build-$name/meson-private/coredata.dat" ]]; then
+    meson_options+=(--reconfigure)
+  fi
+  meson "${meson_options[@]}" "build-$name" "$source_dir" -Dguest_arch=arm64 \
     --buildtype=release --cross-file "$name.ini"
   ninja -C "build-$name" libish.a libish_emu.a libfakefs.a
+  # Record SDK evidence without using private SDK stubs or host libraries.
+  printf '%s\n' '#include <archive.h>' 'int main(void) { return archive_read_free(archive_read_new()); }' > "$name-archive-probe.c"
+  if xcrun --sdk "$sdk" clang -arch arm64 -isysroot "$sysroot" "$min" \
+      "$name-archive-probe.c" -larchive -o "$name-archive-probe" > "$name-archive-probe.log" 2>&1; then
+    echo "$sdk: SDK libarchive compile/link probe passed" | tee -a "$name-archive-probe.log"
+  else
+    echo "$sdk: SDK libarchive unavailable through public headers/link; using static source build" | tee -a "$name-archive-probe.log"
+  fi
+  local options=() option
+  for option in MBEDTLS NETTLE OPENSSL MD LIBB2 LZ4 LZO LZMA ZSTD BZip2 LIBXML2 BSDXML EXPAT WIN32_XMLLITE PCREPOSIX PCRE2POSIX LIBGCC CNG TAR CPIO CAT UNZIP XATTR ACL ICONV TEST; do
+    options+=("-DENABLE_$option=OFF")
+  done
+  cmake -S "$output_dir/libarchive-3.8.11" -B "archive-$name" -G Ninja \
+    -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT="$sysroot" \
+    -DCMAKE_C_COMPILER="$(xcrun --sdk "$sdk" --find clang)" \
+    -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+    -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_ZLIB=ON -DZLIB_INCLUDE_DIR="$sysroot/usr/include" \
+    -DZLIB_LIBRARY="$sysroot/usr/lib/libz.tbd" "${options[@]}"
+  cmake --build "archive-$name" --target archive_static
+  cp "archive-$name/libarchive/libarchive.a" "build-$name/libarchive.a"
+  # fchdir is already in libish.a; do not define it a second time.
+  xcrun --sdk "$sdk" clang -arch arm64 -isysroot "$sysroot" "$min" -O2 \
+    -DGUEST_ARM64=1 -I"$source_dir" -I"$output_dir/build-$name" \
+    -I"$output_dir/libarchive-3.8.11/libarchive" \
+    -c "$source_dir/tools/fakefs.c" -o "build-$name/fakefs-tools.o"
+  xcrun --sdk "$sdk" ar rcs "build-$name/libfakefs_tools.a" "build-$name/fakefs-tools.o"
+  cp libarchive-3.8.11/COPYING "build-$name/libarchive-COPYING"
+
 }
 build ios-arm64 iphoneos '-miphoneos-version-min=13.0'
 build iossim-arm64 iphonesimulator '-mios-simulator-version-min=13.0'
-# Output: build-{ios-arm64,iossim-arm64}/{libish.a,libish_emu.a,libfakefs.a}.
-# TODO: verify actual SDK/tool resolution, VDSO and final Xcode link on macOS.
+# Output per SDK: libish.a, libish_emu.a, libfakefs.a, libfakefs_tools.a,
+# libarchive.a and libarchive-COPYING. Final Runner link must be verified on Mac.
