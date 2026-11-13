@@ -1,7 +1,8 @@
-// The workflow exports RUNNER_TEMP. For local Xcode builds set
-// SHELLBOX_LIBS_ROOT to the output directory of build-ios-libs.sh.
+// CI exports RUNNER_TEMP. For local builds, create ShellBox.local.xcconfig
+// beside this file and set SHELLBOX_LIBS_ROOT to the build-ios-libs.sh output.
 SHELLBOX_SOURCE_ROOT = $(SRCROOT)/../../third_party/shellbox-src
 SHELLBOX_LIBS_ROOT = $(RUNNER_TEMP)/shellbox-ios-libs
+#include? "ShellBox.local.xcconfig"
 SHELLBOX_BUILD_DIR[sdk=iphoneos*] = $(SHELLBOX_LIBS_ROOT)/build-ios-arm64
 SHELLBOX_BUILD_DIR[sdk=iphonesimulator*] = $(SHELLBOX_LIBS_ROOT)/build-iossim-arm64
 HEADER_SEARCH_PATHS = $(inherited) "$(SRCROOT)/../../runtime/shellbox" "$(SHELLBOX_SOURCE_ROOT)" "$(SHELLBOX_BUILD_DIR)"
