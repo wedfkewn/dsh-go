@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:dsh_client/dsh_client.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
@@ -10,6 +11,7 @@ import '../remote/network_watch.dart';
 import '../remote/relay/relay_backend.dart';
 import '../remote/ssh/ssh_link.dart';
 import '../remote/ssh/ssh_transport.dart';
+import '../runtime/native_node/native_node_runtime_bridge.dart';
 import '../runtime/runtime_bridge.dart';
 import '../runtime/runtime_state.dart';
 import 'hosts_state.dart';
@@ -122,6 +124,9 @@ class LocalConnectionController extends AsyncNotifier<HostConnection?> {
     state = AsyncData(connection);
     await ready;
     if (!r.mounted) return null;
+    if (kDebugMode && r.read(runtimeBridgeProvider) is NativeNodeRuntimeBridge) {
+      debugPrint('native-node: Flutter DshClient authenticated and mux ready');
+    }
     // Custom providers' keys kept on the phone go back in where the engine
     // lost them; never awaited (the catalog refreshes when they land).
     unawaited(

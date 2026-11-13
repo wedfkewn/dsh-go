@@ -3,7 +3,7 @@ import Flutter
 import Foundation
 
 /// Node is process-wide. All channel state is owned by the main queue.
-@objc(DshNativeNodeRuntime) final class NativeNodeRuntime: NSObject {
+@objc(DshNativeNodeRuntime) final class NativeNodeRuntime: NSObject, FlutterStreamHandler {
   private typealias NodeStart = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?) -> Int32
   private static let shared = NativeNodeRuntime()
 
@@ -21,7 +21,9 @@ import Foundation
   private var nodeExited = false
   private var generation = UUID().uuidString
   private var details: [String: Any] = [:]
-  private var logs: [String] = []
+  private var logs: [[String: Any]] = []
+  private var logSequence = 0
+  private var eventSink: FlutterEventSink?
   private var timer: Timer?
   private var verifying = false
   private var deadline: Date?
@@ -46,11 +48,13 @@ import Foundation
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "dsh/native_node", binaryMessenger: registrar.messenger())
     channel.setMethodCallHandler { call, result in
-      shared.handle(call.method, result: result)
+      shared.handle(call, result: result)
     }
+    FlutterEventChannel(name: "dsh/native_node/events", binaryMessenger: registrar.messenger())
+      .setStreamHandler(shared)
     #if DEBUG
     if selectedForSmoke, !shared.nodeStarted {
-      shared.handle("start") { value in
+      shared.handle(FlutterMethodCall(methodName: "start", arguments: nil)) { value in
         if let error = value as? FlutterError {
           NSLog("native-node smoke start rejected: %@", error.code)
         }
@@ -63,19 +67,73 @@ import Foundation
     FlutterError(code: code, message: message, details: nil)
   }
 
-  private func handle(_ method: String, result: FlutterResult) {
-    if method == "logs" {
-      result(logs)
-      return
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    eventSink = events
+    publishStatus()
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
+  }
+
+  private var status: [String: Any] {
+    var value = details
+    value["phase"] = installed ? phase : "unimplemented"
+    if installed {
+      value["abi"] = "arm64"
+      value["installedVersion"] = "0.2.2-rc.1"
+      value["bundledVersion"] = "0.2.2-rc.1"
+      value["dshVersion"] = "0.2.2-rc.1"
     }
-    if method == "status" {
-      result(details.merging(["phase": installed ? phase : "unimplemented"]) { _, phase in phase })
+    return value
+  }
+
+  private func publishStatus() {
+    var value = status
+    if let reason = value["error"] as? [String: String] {
+      value["error"] = [reason["code"], reason["message"]].compactMap { $0 }.joined(separator: ": ")
+    }
+    eventSink?(["type": "status", "status": value])
+  }
+
+  private func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    let method = call.method
+    let arguments = call.arguments as? [String: Any]
+    switch method {
+    case "selectedForLaunch":
+      result(Self.selectedForSmoke)
       return
+    case "getLogs", "logs", "getLogSnapshot":
+      let count = max(0, arguments?["lines"] as? Int ?? 100)
+      let entries = Array(logs.suffix(count))
+      if method == "getLogSnapshot" {
+        result(["entries": entries, "throughSeq": logSequence])
+      } else {
+        result(entries.compactMap { $0["line"] as? String })
+      }
+      return
+    case "status":
+      result(status)
+      return
+    case "install" where Self.selectedForSmoke && arguments?["dropKept"] as? Bool != true:
+      result(nil) // Bundled, verified by the build preparation step.
+      return
+    default:
+      break
     }
     guard ["start", "restart", "stop"].contains(method) else { result(FlutterMethodNotImplemented); return }
     guard installed else { result(error("native_node_unavailable", "Prepare the bundled native runtime first.")); return }
     guard Self.selectedForSmoke else { result(error("native_node_not_selected", "Native Node is available in the isolated Debug smoke launch.")); return }
     guard !nodeExited else { result(error("native_node_exited", "Reopen the app to initialize Node again.")); return }
+    if let arguments,
+       arguments["phoneStorage"] as? Bool == true ||
+       arguments["mode"] as? String == "safe" ||
+       (arguments["env"] as? [String: String])?.isEmpty == false {
+      result(error("native_node_unsupported_options", "Native Node does not support these launch options."))
+      return
+    }
     if method == "stop" && !nodeStarted { result(nil); return }
     if method == "start" && ["starting", "running"].contains(phase) { result(nil); return }
     do {
@@ -140,6 +198,7 @@ import Foundation
     deadline = Date().addingTimeInterval(90)
     details = [:]
     verifying = false
+    publishStatus()
     if timer == nil {
       timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.poll() }
     }
@@ -150,10 +209,14 @@ import Foundation
     details = ["error": ["code": code, "message": message]]
     deadline = nil
     log(code)
+    publishStatus()
   }
 
   private func log(_ line: String) {
-    logs.append(line)
+    logSequence += 1
+    let entry: [String: Any] = ["seq": logSequence, "line": line, "stream": "system"]
+    logs.append(entry)
+    eventSink?(["type": "logs", "entries": [entry]])
     if logs.count > 100 { logs.removeFirst() }
     NSLog("native-node: %@", line)
   }
@@ -175,7 +238,7 @@ import Foundation
         fail(reason["code"] ?? "native_node_worker_failed", reason["message"] ?? "DSH Worker failed.")
       }
     case "stopped":
-      if phase == "stopping" { phase = "stopped"; deadline = nil }
+      if phase == "stopping" { phase = "stopped"; deadline = nil; publishStatus() }
     case "candidate":
       guard phase == "starting", !verifying else { return }
       verify(record)
@@ -211,6 +274,7 @@ import Foundation
       self.deadline = nil
       self.details = ["baseUrl": base, "token": token, "runtimeInstanceId": expected,
                       "nodeVersion": record["nodeVersion"] ?? ""]
+      self.publishStatus()
       self.log("authenticated DSH readiness (Node " + (record["nodeVersion"] as? String ?? "unknown") + ")")
     }
   }

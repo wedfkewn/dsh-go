@@ -4,8 +4,8 @@ import '../local_runtime_service.dart';
 
 /// Fail-closed iOS NodeMobile runtime boundary.
 ///
-/// This is intentionally not selected by runtimeBridgeProvider. The native
-/// component must first prove a live, authenticated loopback DSH endpoint.
+/// The native component must first prove a live, authenticated loopback
+/// DSH endpoint before reporting a running status.
 /// No guest filesystem, process, or user data is modified by this adapter.
 final class NativeNodeRuntimeService implements LocalRuntimeService {
   NativeNodeRuntimeService({MethodChannel? channel})
@@ -72,6 +72,10 @@ final class NativeNodeRuntimeService implements LocalRuntimeService {
           uri.scheme != 'http' ||
           !uri.hasPort ||
           uri.port == 0 ||
+          uri.userInfo.isNotEmpty ||
+          uri.hasQuery ||
+          uri.hasFragment ||
+          (uri.path.isNotEmpty && uri.path != '/') ||
           !{'127.0.0.1', '::1', 'localhost'}.contains(uri.host) ||
           token is! String ||
           token.trim().isEmpty) {

@@ -132,19 +132,22 @@ copying Fish Pocket code, framework modifications or assets.
 2. Build Runner in Debug for an arm64 iOS Simulator. Add
    `--dsh-native-node-smoke` to the Runner launch arguments, using an isolated
    simulator installation. This explicitly starts the native channel and
-   prevents the ShellBox plugin from starting during that launch.
+   selects its RuntimeBridge in Flutter and prevents the ShellBox plugin from
+   starting during that launch.
 3. Check the console for `native-node: authenticated DSH readiness`.
    Readiness requires the anonymous request to be rejected and a token exchange
-   to reach the DSH page. Remove the flag and relaunch to use ShellBox.
+   to reach the DSH page. Open the local host in Flutter and check for
+   `native-node: Flutter DshClient authenticated and mux ready`. Remove the
+   flag and relaunch to use ShellBox.
 4. Run the host ESM/auth/stop/restart smoke with
    `node --version` (Node 24.22.3) and `node runtime/native-node/smoke.mjs`.
 
 Native persistence lives under Application Support/NativeNode, with separate
-HOME, DSH_HOME and temporary paths. Flutter still uses the existing ShellBox
-RuntimeBridge. The experimental channel is a native validation entry point
-only. General subprocess execution, the just-bash workspace fence, native
-flock for durable sessions, unsupported native plugins, Flutter backend
-selection and background authorization for native Node remain open.
+HOME, DSH_HOME and temporary paths. The Debug launch overrides Flutter’s
+RuntimeBridge for that process and disables the legacy guest filesystem provider
+so Flutter cannot modify ShellBox files while using Node. General subprocess
+execution, the just-bash workspace fence, native flock for durable sessions,
+unsupported native plugins and background authorization for Node remain open.
 No migration of ShellBox data has been performed.
 
 Verified on an arm64 iOS simulator: NodeMobile 24.20.0 loaded a DSH ESM Worker,
@@ -152,5 +155,8 @@ started the actual DSH loopback service, and passed native authentication.
 The host smoke verified Worker replacement, token rotation, and stop. The
 simulator Worker was also restarted with a fresh token, authenticated again,
 and stopped with its listener closed. Flutter analyze and 17 targeted runtime
-tests passed, as did unsigned device Release and arm64 simulator Debug builds. True-device network, an authenticated model conversation, Flutter
-chat on the new backend, and Android runtime tests remain unverified.
+tests passed, as did unsigned device Release and arm64 simulator Debug builds.
+The Flutter bridge follow-up passed 18 targeted tests and analyze. On the
+simulator the normal Flutter DshClient authenticated and reached mux readiness
+using the native backend. True-device network, an authenticated model
+conversation and Android runtime tests remain unverified.

@@ -1,5 +1,7 @@
 import 'package:dsh_app/runtime/local_runtime_service.dart';
 import 'package:dsh_app/runtime/native_node/native_node_runtime_service.dart';
+import 'package:dsh_app/runtime/native_node/native_node_runtime_bridge.dart';
+import 'package:dsh_app/runtime/runtime_bridge.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -76,6 +78,8 @@ void main() {
       {'phase': 'running', 'baseUrl': 'https://example.com:443', 'token': 'x'},
       {'phase': 'running', 'baseUrl': 'http://127.0.0.1:8000', 'token': ''},
       {'phase': 'running', 'baseUrl': 'http://127.0.0.1', 'token': 'x'},
+      {'phase': 'running', 'baseUrl': 'http://user@127.0.0.1:8000', 'token': 'x'},
+      {'phase': 'running', 'baseUrl': 'http://127.0.0.1:8000/?token=x', 'token': 'x'},
       {'phase': 'unexpected'},
     ];
     for (final value in cases) {
@@ -102,6 +106,27 @@ void main() {
     final map = await service.statusMap();
     expect(map['nodeVersion'], '24.x');
     expect((await service.status()).phase, LocalRuntimeServicePhase.running);
+  });
+
+  test('RuntimeBridge uses the native channel for authenticated status and lifecycle', () async {
+    final calls = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call.method);
+      if (call.method != 'status') return null;
+      return {
+        'phase': 'running',
+        'baseUrl': 'http://127.0.0.1:8080',
+        'token': 'test-only',
+        'nodeVersion': '24.20.0',
+      };
+    });
+    final bridge = NativeNodeRuntimeBridge();
+    await bridge.start();
+    final status = await bridge.status();
+    await bridge.stop();
+    expect(calls, ['start', 'status', 'stop']);
+    expect(status.phase, RuntimePhase.running);
+    expect(status.token, 'test-only');
   });
 
   test('rejects malformed error maps', () async {

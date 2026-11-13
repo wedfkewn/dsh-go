@@ -10,6 +10,9 @@ import 'diagnostics/app_error_log.dart';
 import 'launch/launch_state.dart';
 import 'links/page_links.dart' show registerPageLink, tavernPageLink;
 import 'remote/transfer_consent.dart';
+import 'runtime/native_node/native_node_runtime_bridge.dart';
+import 'runtime/runtime_state.dart';
+import 'share_code/guest_fs.dart';
 import 'state/locale_state.dart';
 import 'ui/common/third_party_licenses.dart';
 import 'ui/remote/transfer_consent_dialog.dart';
@@ -35,5 +38,17 @@ Future<void> _startApp() async {
   // through AnnotatedRegion(dshSystemOverlay(...)).
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(dshSystemOverlay(PlatformDispatcher.instance.platformBrightness));
-  runApp(ProviderScope(overrides: [remoteTransferConsentProvider.overrideWithValue(confirmRemoteTransfer)], child: const DshApp()));
+  final useNativeNode = await nativeNodeSelectedForLaunch();
+  runApp(
+    ProviderScope(
+      overrides: [
+        remoteTransferConsentProvider.overrideWithValue(confirmRemoteTransfer),
+        if (useNativeNode) ...[
+          runtimeBridgeProvider.overrideWith((ref) => NativeNodeRuntimeBridge()),
+          guestFsProvider.overrideWith((ref) async => null),
+        ],
+      ],
+      child: const DshApp(),
+    ),
+  );
 }
