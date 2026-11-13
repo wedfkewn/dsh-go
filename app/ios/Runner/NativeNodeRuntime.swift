@@ -8,14 +8,6 @@ import Foundation
   private static let shared = NativeNodeRuntime()
 
   private let files = FileManager.default
-  @objc static var selectedForSmoke: Bool {
-    #if DEBUG
-    return ProcessInfo.processInfo.arguments.contains("--dsh-native-node-smoke") && shared.installed
-    #else
-    return false
-    #endif
-  }
-
   private var phase = "installed"
   private var nodeStarted = false
   private var nodeExited = false
@@ -52,15 +44,6 @@ import Foundation
     }
     FlutterEventChannel(name: "dsh/native_node/events", binaryMessenger: registrar.messenger())
       .setStreamHandler(shared)
-    #if DEBUG
-    if selectedForSmoke, !shared.nodeStarted {
-      shared.handle(FlutterMethodCall(methodName: "start", arguments: nil)) { value in
-        if let error = value as? FlutterError {
-          NSLog("native-node smoke start rejected: %@", error.code)
-        }
-      }
-    }
-    #endif
   }
 
   private func error(_ code: String, _ message: String) -> FlutterError {
@@ -102,9 +85,6 @@ import Foundation
     let method = call.method
     let arguments = call.arguments as? [String: Any]
     switch method {
-    case "selectedForLaunch":
-      result(Self.selectedForSmoke)
-      return
     case "getLogs", "logs", "getLogSnapshot":
       let count = max(0, arguments?["lines"] as? Int ?? 100)
       let entries = Array(logs.suffix(count))
@@ -117,7 +97,7 @@ import Foundation
     case "status":
       result(status)
       return
-    case "install" where Self.selectedForSmoke && arguments?["dropKept"] as? Bool != true:
+    case "install" where installed && arguments?["dropKept"] as? Bool != true:
       result(nil) // Bundled, verified by the build preparation step.
       return
     default:
@@ -125,7 +105,6 @@ import Foundation
     }
     guard ["start", "restart", "stop"].contains(method) else { result(FlutterMethodNotImplemented); return }
     guard installed else { result(error("native_node_unavailable", "Prepare the bundled native runtime first.")); return }
-    guard Self.selectedForSmoke else { result(error("native_node_not_selected", "Native Node is available in the isolated Debug smoke launch.")); return }
     guard !nodeExited else { result(error("native_node_exited", "Reopen the app to initialize Node again.")); return }
     if let arguments,
        arguments["phoneStorage"] as? Bool == true ||

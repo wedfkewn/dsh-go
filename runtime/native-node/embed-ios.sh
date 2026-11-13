@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 artifacts="$SRCROOT/NativeNodeArtifacts"
-[[ -d "$artifacts/NodeMobile.xcframework" && -d "$artifacts/engine" ]] || exit 0
+[[ -d "$artifacts/NodeMobile.xcframework" && -d "$artifacts/engine" ]] || {
+  echo 'error: Run runtime/native-node/prepare-ios.sh with the pinned payload before building Runner.' >&2
+  exit 1
+}
 case "$PLATFORM_NAME" in
   iphoneos) slice=ios-arm64 ;;
   iphonesimulator) slice=ios-arm64-simulator ;;

@@ -10,9 +10,6 @@
 		D5C100000000000000000001 /* NativeNodeRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C100000000000000000002; };
 		D5B000000000000000000005 /* BackgroundTasks.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000006; };
 		D5B000000000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000002; };
-		D51B00000000000000000005 /* libarchive-COPYING in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000006; };
-		D51B00000000000000000003 /* MANIFEST.json in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000004; };
-		D51B00000000000000000001 /* rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000002; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
@@ -22,8 +19,6 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
-		D51000000000000000000001 /* ShellBoxPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000002 /* ShellBoxPlugin.m */; };
-		D51000000000000000000003 /* ShellBoxKernel.c in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000004 /* ShellBoxKernel.c */; };
 		74A91C8AAF87F617741C0CF7 /* pluginSource */ = { isa = PBXBuildFile; fileRef = 23D518D49B6E8E558011F937; };
 		D075770FD1165A62194A3992 /* appAttributes */ = { isa = PBXBuildFile; fileRef = 20017C4520EC9675D24EE1C5; };
 		573520B481EA67D54B594BCC /* widgetAttributes */ = { isa = PBXBuildFile; fileRef = 20017C4520EC9675D24EE1C5; };
@@ -62,9 +57,6 @@ D56000000000000000000001 /* NotifyPlugin.swift in Sources */ = {isa = PBXBuildFi
 		D5B000000000000000000006 /* BackgroundTasks.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTasks.framework; path = System/Library/Frameworks/BackgroundTasks.framework; sourceTree = SDKROOT; };
 		D5B000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D5B000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		D51B00000000000000000006 /* libarchive-COPYING */ = {isa = PBXFileReference; lastKnownFileType = text; path = "$(SHELLBOX_BUILD_DIR)/libarchive-COPYING"; sourceTree = "<absolute>"; };
-		D51B00000000000000000004 /* MANIFEST.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "MANIFEST.json"; path = "../../payload/MANIFEST.json"; sourceTree = SOURCE_ROOT; };
-		D51B00000000000000000002 /* rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; name = "rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz"; path = "../../payload/rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz"; sourceTree = SOURCE_ROOT; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -82,8 +74,6 @@ D56000000000000000000001 /* NotifyPlugin.swift in Sources */ = {isa = PBXBuildFi
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		D51000000000000000000002 /* ShellBoxPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ShellBoxPlugin.m; sourceTree = "<group>"; };
-		D51000000000000000000004 /* ShellBoxKernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ShellBoxKernel.c; sourceTree = "<group>"; };
 		23D518D49B6E8E558011F937 /* plugin */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/PetLiveActivityPlugin.swift; sourceTree = SOURCE_ROOT; };
 		20017C4520EC9675D24EE1C5 /* attributes */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/PetActivityAttributes.swift; sourceTree = SOURCE_ROOT; };
 		1E350E022F325AE1242B2BC9 /* widget */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetLiveActivity/PetLiveActivity.swift; sourceTree = SOURCE_ROOT; };
@@ -160,11 +150,6 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
                 D56000000000000000000002 /* NotifyPlugin.swift */,
-				D51B00000000000000000002 /* payload archive */,
-				D51B00000000000000000004 /* MANIFEST.json */,
-				D51B00000000000000000006 /* libarchive-COPYING */,
-				D51000000000000000000004 /* ShellBoxKernel.c */,
-				D51000000000000000000002 /* ShellBoxPlugin.m */,
 				D5C100000000000000000002 /* NativeNodeRuntime.swift */,
 				D5B000000000000000000002 /* Localizable.strings */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
@@ -272,9 +257,6 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D51B00000000000000000003 /* MANIFEST.json in Resources */,
-				D51B00000000000000000005 /* libarchive-COPYING in Resources */,
-				D51B00000000000000000001 /* rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz in Resources */,
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
@@ -346,8 +328,6 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 				74A91C8AAF87F617741C0CF7, D075770FD1165A62194A3992,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
                 D56000000000000000000001 /* NotifyPlugin.swift in Sources */,
-				D51000000000000000000003 /* ShellBoxKernel.c in Sources */,
-				D51000000000000000000001 /* ShellBoxPlugin.m in Sources */,
 				D5C100000000000000000001 /* NativeNodeRuntime.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,

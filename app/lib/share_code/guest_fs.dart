@@ -279,4 +279,4 @@ class GuestFs {
 
 /// The on-device rootfs (null before the runtime is installed). Tests
 /// override it with a temp directory.
-final guestFsProvider = FutureProvider<GuestFs?>((ref) => GuestFs.local());
+final guestFsProvider = FutureProvider<GuestFs?>((ref) => Platform.isIOS ? null : GuestFs.local());

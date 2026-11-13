@@ -22,12 +22,14 @@ class _IosBackgroundPageState extends ConsumerState<IosBackgroundPage> {
   StreamSubscription<Map<String, dynamic>>? _subscription;
   late final AppLifecycleListener _lifecycle;
 
-  ShellBoxRuntimeBridge get _bridge => ref.read(runtimeBridgeProvider) as ShellBoxRuntimeBridge;
+  late final ShellBoxRuntimeBridge? _bridge;
 
   @override
   void initState() {
     super.initState();
-    _subscription = _bridge.backgroundChanges.listen((snapshot) {
+    final bridge = ref.read(runtimeBridgeProvider);
+    _bridge = bridge is ShellBoxRuntimeBridge ? bridge : null;
+    _subscription = _bridge?.backgroundChanges.listen((snapshot) {
       if (mounted) setState(() => _snapshot = snapshot);
     });
     _lifecycle = AppLifecycleListener(onResume: _refresh);
@@ -35,9 +37,11 @@ class _IosBackgroundPageState extends ConsumerState<IosBackgroundPage> {
   }
 
   Future<void> _refresh() async {
+    final bridge = _bridge;
+    if (bridge == null) return;
     try {
-      final capabilities = await _bridge.getBackgroundCapabilities();
-      final snapshot = await _bridge.getBackgroundExecutionState();
+      final capabilities = await bridge.getBackgroundCapabilities();
+      final snapshot = await bridge.getBackgroundExecutionState();
       if (mounted) {
         setState(() {
           _capabilities = capabilities;
@@ -69,6 +73,13 @@ class _IosBackgroundPageState extends ConsumerState<IosBackgroundPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final bridge = _bridge;
+    if (bridge == null) {
+      return AppPage.list(
+        title: l10n.iosBackgroundTitle,
+        children: [ListTile(title: Text(l10n.iosBackgroundUnavailable))],
+      );
+    }
     final state = switch (_snapshot?['state']) {
       'foreground' => l10n.iosBackgroundForeground,
       'resuming' => l10n.iosBackgroundResuming,
@@ -93,7 +104,7 @@ class _IosBackgroundPageState extends ConsumerState<IosBackgroundPage> {
           subtitle: Text(l10n.iosBackgroundContinued),
           value: _snapshot?['enabled'] == true,
           onChanged: _capabilities?['continuedProcessingOSSupported'] == true
-              ? (enabled) => _change(() => _bridge.setBackgroundEnabled(enabled)) : null,
+              ? (enabled) => _change(() => bridge.setBackgroundEnabled(enabled)) : null,
         ),
         ListTile(title: Text(reason)),
         ListTile(title: Text(l10n.iosBackgroundGrace)),
@@ -103,7 +114,7 @@ class _IosBackgroundPageState extends ConsumerState<IosBackgroundPage> {
         TextButton(onPressed: _refresh, child: Text(l10n.iosBackgroundRefresh)),
         if (_snapshot?['authorizationActive'] == true)
           TextButton(
-            onPressed: () => _change(_bridge.cancelContinuedProcessing),
+            onPressed: () => _change(bridge.cancelContinuedProcessing),
             child: Text(l10n.iosBackgroundCancel),
           ),
       ],

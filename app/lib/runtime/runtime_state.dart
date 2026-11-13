@@ -2,24 +2,14 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/read_list_epoch.dart';
 import '../state/settings_state.dart';
 import 'runtime_bridge.dart';
-import 'shellbox/shellbox_runtime_bridge.dart';
+import 'native_node/native_node_runtime_bridge.dart';
 
-Future<bool> nativeNodeSelectedForLaunch() async {
-  if (!Platform.isIOS) return false;
-  try {
-    return await const MethodChannel('dsh/native_node').invokeMethod<bool>('selectedForLaunch') == true;
-  } on MissingPluginException {
-    return false;
-  }
-}
-
-final runtimeBridgeProvider = Provider<RuntimeBridge>((ref) => Platform.isIOS ? ShellBoxRuntimeBridge() : RuntimeBridge());
+final runtimeBridgeProvider = Provider<RuntimeBridge>((ref) => Platform.isIOS ? NativeNodeRuntimeBridge() : RuntimeBridge());
 
 /// [RuntimeBridge.batteryExempt]; invalidate to read it again.
 final batteryExemptProvider = FutureProvider<bool?>((ref) => ref.watch(runtimeBridgeProvider).batteryExempt());
