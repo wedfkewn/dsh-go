@@ -1,8 +1,9 @@
-# iOS native Node runtime migration (Phase 1: fail-closed boundary)
+# iOS native Node runtime migration
 
-Status: **scaffold only; NOT a runnable DSH engine**. This branch does not
-replace or uninstall ShellBox. It must not be described as having fixed the
-reported ESM URL or DeepSeek guest-network failures.
+Status: **authenticated DSH loopback validated on an arm64 iOS simulator**.
+The production Flutter runtime selection remains ShellBox. The native backend
+is available for isolated Debug verification. See the implementation and
+verification sections below.
 
 ## Architecture decision
 
@@ -27,7 +28,7 @@ The two runtimes **cannot share executable binaries or fakefs metadata**.
 No in-place conversion of ShellBox/active/data or its meta.db is permitted.
 Workspace export/import and plugin migration need an explicit, reversible step.
 
-## Phase 1 implemented on this branch
+## Original Phase 1 scaffold
 
 - iOS registers a separate MethodChannel "dsh/native_node" that reports
   "unimplemented" / "native_node_unavailable" until a real engine is linked.
@@ -40,10 +41,9 @@ Workspace export/import and plugin migration need an explicit, reversible step.
   runtimeBridgeProvider still selects ShellBox on iOS. Existing behavior,
   users' guest data, background tasks and Live Activities stay untouched.
 
-No iOS compile, Flutter analyze/test, NodeMobile link or phone test has been
-run from this environment. A documented test is not a validation result.
+This scaffold preceded the executable integration below.
 
-## Phase 2: native engine implementation (not done)
+## Phase 2 acceptance checklist
 
 1. Pin and verify a redistributable NodeMobile iOS XCFramework version, build
    for iphoneos and iphonesimulator, embed/sign it in Runner. Confirm the actual
@@ -149,6 +149,8 @@ No migration of ShellBox data has been performed.
 
 Verified on an arm64 iOS simulator: NodeMobile 24.20.0 loaded a DSH ESM Worker,
 started the actual DSH loopback service, and passed native authentication.
-The host smoke additionally verified Worker replacement, token rotation,
-and stop. True-device network, an authenticated model conversation, Flutter
+The host smoke verified Worker replacement, token rotation, and stop. The
+simulator Worker was also restarted with a fresh token, authenticated again,
+and stopped with its listener closed. Flutter analyze and 17 targeted runtime
+tests passed, as did unsigned device Release and arm64 simulator Debug builds. True-device network, an authenticated model conversation, Flutter
 chat on the new backend, and Android runtime tests remain unverified.
