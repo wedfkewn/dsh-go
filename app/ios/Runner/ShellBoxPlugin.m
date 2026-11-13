@@ -1,4 +1,6 @@
 #import "ShellBoxPlugin.h"
+#import <UIKit/UIKit.h>
+#import <BackgroundTasks/BackgroundTasks.h>
 #import <CoreFoundation/CoreFoundation.h>
 #include <math.h>
 #include <stdlib.h>
@@ -14,6 +16,10 @@
 // Channel state and history live on main; blocking installation runs on one worker.
 @interface ShellBoxPlugin ()
 - (void)receiveOutput:(NSData *)data stream:(int)stream;
+- (NSDictionary *)statusMap;
+- (NSDictionary *)backgroundExecutionSnapshot;
+- (void)publishBackground:(NSString *)state;
+- (void)finishBackground:(BOOL)success state:(NSString *)state cancelTask:(BOOL)cancel;
 @end
 
 @implementation ShellBoxPlugin
@@ -46,6 +52,33 @@ static unsigned expectedPort;
 static NSUInteger startGeneration;
 static NSString *runtimeInstanceID, *runtimeStartedAt, *requestSource, *transitionSource;
 static NSString *flutterLifecycle = @"unknown";
+// Authorization state is independent of sessionPhase and guest ownership.
+// Main-thread authorization bookkeeping; never owns guest resources.
+static NSString *backgroundExecutionState = @"suspendedOrUnknown";
+static NSString *backgroundRuntimeInstanceID;
+static NSString *backgroundNativeEvent;
+static FlutterMethodChannel *backgroundChannel;
+static NSDictionary *backgroundTaskInfo;
+static NSString *backgroundRequestID, *backgroundError;
+static NSMutableSet<NSString *> *backgroundAttemptKeys;
+static dispatch_queue_t checkpointQueue;
+static BGTask *backgroundSystemTask;
+static UIBackgroundTaskIdentifier backgroundGrace;
+static NSUInteger checkpointGeneration;
+static BOOL checkpointDirty, backgroundTaskVerified, backgroundCancellationRequested;
+static NSDictionary *backgroundRecovery;
+
+static NSString *BackgroundIdentifier(void) {
+    return [NSBundle.mainBundle.bundleIdentifier stringByAppendingString:@".dsh.continued"];
+}
+static BOOL BackgroundEnabled(void) {
+    return [NSUserDefaults.standardUserDefaults boolForKey:@"dsh.background.enabled"];
+}
+static NSString *BackgroundKey(NSDictionary *task) {
+    return task ? [NSString stringWithFormat:@"%@/%@/%@", task[@"runtimeInstanceId"], task[@"sessionId"], task[@"taskId"]] : nil;
+}
+
+
 
 static ShellBoxPlugin *runtimeOwner;
 static const NSTimeInterval ShellBoxStopSeconds = 5;
@@ -168,12 +201,227 @@ static NSString *ShellBoxInstallPayload(void) {
         binaryMessenger:registrar.messenger];
     ShellBoxPlugin *instance = [[ShellBoxPlugin alloc] init];
     if (!runtimeOwner) {
+        backgroundGrace = UIBackgroundTaskInvalid;
         runtimeOwner = instance;
         kernelQueue = dispatch_queue_create("dsh.shellbox.kernel", DISPATCH_QUEUE_SERIAL);
         secrets = [NSMutableSet set];
+        backgroundAttemptKeys = [NSMutableSet set];
+        checkpointQueue = dispatch_queue_create("dsh.background.checkpoint", DISPATCH_QUEUE_SERIAL);
+        NSURL *recoveryDirectory = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory
+            inDomains:NSUserDomainMask].firstObject;
+        backgroundRecovery = [NSDictionary dictionaryWithContentsOfURL:
+            [recoveryDirectory URLByAppendingPathComponent:@"dsh-background-recovery.plist"]];
         pendingOutput[0] = [NSMutableData data]; pendingOutput[1] = [NSMutableData data];
     }
+    backgroundChannel = channel;
     [registrar addMethodCallDelegate:instance channel:channel];
+    // The process-lifetime owner survives Flutter engine/page recreation.
+    if (runtimeOwner == instance) {
+        NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+        [center addObserver:instance selector:@selector(backgroundLifecycle:)
+                       name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [center addObserver:instance selector:@selector(backgroundLifecycle:)
+                       name:UIApplicationDidBecomeActiveNotification object:nil];
+        backgroundExecutionState = [UIApplication sharedApplication].applicationState == UIApplicationStateActive
+            ? @"foreground" : @"suspendedOrUnknown";
+        [instance publishBackground:backgroundExecutionState];
+    }
+}
+
+// Continued-processing handlers may register dynamically (Apple WWDC25/227).
+// A unique request ID and captured task identity reject late launches from old turns.
+- (BOOL)registerBackgroundRequest:(NSString *)identifier {
+    NSDictionary *identity = backgroundTaskInfo;
+    if (@available(iOS 26.0, *)) {
+        return [BGTaskScheduler.sharedScheduler registerForTaskWithIdentifier:identifier
+            usingQueue:dispatch_get_main_queue() launchHandler:^(BGTask *task) {
+                if (![BackgroundKey(identity) isEqual:BackgroundKey(backgroundTaskInfo)] || ![task.identifier isEqual:backgroundRequestID] ||
+                    ![backgroundTaskInfo[@"runtimeInstanceId"] isEqual:runtimeInstanceID]) {
+                    [task setTaskCompletedWithSuccess:NO]; return;
+                }
+                backgroundSystemTask = task;
+                BGContinuedProcessingTask *continued = (BGContinuedProcessingTask *)task;
+                // NSProgress total <= 0 is indeterminate. Never count tokens/ticks as completion.
+                continued.progress.totalUnitCount = -1;
+                continued.progress.completedUnitCount = 0;
+                [continued updateTitle:NSLocalizedString(@"DSH task", nil)
+                    subtitle:NSLocalizedString(@"Working · progress unknown", nil)];
+                dispatch_block_t endAuthorization = ^{
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (backgroundSystemTask != task ||
+                            ![identity[@"runtimeInstanceId"] isEqual:runtimeInstanceID]) return;
+                        [runtimeOwner finishBackground:NO state:@"expired" cancelTask:YES];
+                    });
+                };
+                task.expirationHandler = endAuthorization;
+                continued.progress.cancellable = YES;
+                continued.progress.cancellationHandler = endAuthorization;
+                [runtimeOwner publishBackground:@"continuedProcessing"];
+            }];
+    }
+    return NO;
+}
+
+- (void)publishBackground:(NSString *)state {
+    backgroundExecutionState = state;
+    backgroundRuntimeInstanceID = [runtimeInstanceID copy];
+    NSDictionary *snapshot = [self backgroundExecutionSnapshot];
+    if (backgroundError) [self recordSystemMessage:[@"background.reason " stringByAppendingString:backgroundError]];
+    [backgroundChannel invokeMethod:@"backgroundExecutionChanged" arguments:snapshot];
+    [NSNotificationCenter.defaultCenter postNotificationName:@"DshBackgroundExecutionChanged"
+        object:nil userInfo:snapshot];
+    [self recordLifecycle:[@"background." stringByAppendingString:state] source:@"native.backgroundExecution"];
+}
+
+- (void)endBackgroundGrace {
+    if (backgroundGrace == UIBackgroundTaskInvalid) return;
+    UIBackgroundTaskIdentifier identifier = backgroundGrace;
+    backgroundGrace = UIBackgroundTaskInvalid;
+    [UIApplication.sharedApplication endBackgroundTask:identifier];
+}
+
+// A checkpoint is only recovery metadata, not a guest-memory snapshot. No prompts,
+// titles, credentials, or runtime URLs are written. Disk work is off the kernel queue.
+- (void)checkpointBackground {
+    if (!checkpointDirty || !backgroundTaskInfo) return;
+    checkpointDirty = NO;
+    NSUInteger generation = ++checkpointGeneration;
+    NSDictionary *saved = @{ @"runtimeInstanceId": backgroundTaskInfo[@"runtimeInstanceId"],
+        @"sessionId": backgroundTaskInfo[@"sessionId"], @"taskId": backgroundTaskInfo[@"taskId"],
+        @"state": backgroundExecutionState, @"savedAt": NSDate.date };
+    if (UIApplication.sharedApplication.applicationState == UIApplicationStateBackground &&
+        backgroundGrace == UIBackgroundTaskInvalid) {
+        backgroundGrace = [UIApplication.sharedApplication beginBackgroundTaskWithName:@"DSH recovery metadata"
+            expirationHandler:^{
+                [self endBackgroundGrace];
+                [self publishBackground:@"expired"];
+            }];
+        if (backgroundGrace != UIBackgroundTaskInvalid && !backgroundSystemTask &&
+            [backgroundExecutionState isEqual:@"suspendedOrUnknown"])
+            [self publishBackground:@"backgroundGrace"];
+    }
+    dispatch_async(checkpointQueue, ^{
+        NSURL *directory = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory
+            inDomains:NSUserDomainMask].firstObject;
+        NSError *error;
+        BOOL ok = [NSFileManager.defaultManager createDirectoryAtURL:directory
+            withIntermediateDirectories:YES attributes:nil error:&error] &&
+            [saved writeToURL:[directory URLByAppendingPathComponent:@"dsh-background-recovery.plist"] atomically:YES];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (generation != checkpointGeneration) return;
+            if (ok) backgroundRecovery = saved;
+            [self endBackgroundGrace];
+            if (!ok) { backgroundError = @"checkpoint_write_failed"; checkpointDirty = YES; }
+            if ([backgroundExecutionState isEqual:@"backgroundGrace"])
+                [self publishBackground:ok ? @"suspendedOrUnknown" : @"failed"];
+        });
+    });
+    // A slow filesystem must never hold a UIKit grant indefinitely.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        if (generation != checkpointGeneration || backgroundGrace == UIBackgroundTaskInvalid) return;
+        [self endBackgroundGrace];
+        backgroundError = @"checkpoint_deadline_exceeded";
+        [self publishBackground:@"suspendedOrUnknown"];
+    });
+}
+
+- (void)finishBackground:(BOOL)success state:(NSString *)state cancelTask:(BOOL)cancel {
+    NSDictionary *task = backgroundTaskInfo;
+    BGTask *system = backgroundSystemTask;
+    backgroundSystemTask = nil;
+    if (backgroundRequestID) [BGTaskScheduler.sharedScheduler cancelTaskRequestWithIdentifier:backgroundRequestID];
+    backgroundRequestID = nil;
+    system.expirationHandler = nil;
+    if (@available(iOS 26.0, *)) {
+        if ([system isKindOfClass:BGContinuedProcessingTask.class])
+            ((BGContinuedProcessingTask *)system).progress.cancellationHandler = nil;
+        if (success && [system isKindOfClass:BGContinuedProcessingTask.class]) {
+            ((BGContinuedProcessingTask *)system).progress.totalUnitCount = 1;
+            ((BGContinuedProcessingTask *)system).progress.completedUnitCount = 1;
+        }
+    }
+    [system setTaskCompletedWithSuccess:success];
+    [self publishBackground:state];
+    checkpointDirty = task != nil;
+    [self checkpointBackground];
+    if (cancel && !backgroundCancellationRequested && task && [task[@"runtimeInstanceId"] isEqual:runtimeInstanceID]) {
+        backgroundCancellationRequested = YES;
+        backgroundError = @"cancellation_unconfirmed";
+        // Session-level cancellation only. Flutter must revalidate the turn before RPC.
+        [backgroundChannel invokeMethod:@"cancelBackgroundTask" arguments:task result:^(id reply) {
+            if (![BackgroundKey(task) isEqual:BackgroundKey(backgroundTaskInfo)]) return;
+            backgroundError = [reply isEqual:@"accepted"] ? @"cancellation_requested" : @"cancellation_unconfirmed";
+        }];
+    }
+}
+
+- (void)backgroundLifecycle:(NSNotification *)notification {
+    NSAssert(NSThread.isMainThread, @"Background state requires the platform thread");
+    if ([backgroundNativeEvent isEqual:notification.name] &&
+        (backgroundRuntimeInstanceID == runtimeInstanceID || [backgroundRuntimeInstanceID isEqual:runtimeInstanceID])) return;
+    backgroundNativeEvent = notification.name;
+    if ([notification.name isEqual:UIApplicationDidBecomeActiveNotification]) {
+        [self endBackgroundGrace];
+        backgroundTaskVerified = NO;
+        [self publishBackground:@"resuming"];
+        // The existing status path reconciles confirmed command exit.
+        // Background expiry itself is never evidence of guest exit.
+        [self statusMap];
+        [self publishBackground:@"foreground"];
+    } else {
+        [self publishBackground:backgroundSystemTask ? @"continuedProcessing" : @"suspendedOrUnknown"];
+        [self checkpointBackground];
+    }
+}
+
+- (NSDictionary *)backgroundExecutionSnapshot {
+    return @{@"state": backgroundExecutionState,
+        @"runtimeInstanceId": runtimeInstanceID ?: (id)NSNull.null,
+        @"observedRuntimeInstanceId": backgroundRuntimeInstanceID ?: (id)NSNull.null,
+        @"runtimePhase": SBPhase() ?: @"idle", @"appPid": @(getpid()),
+        @"dshPid": @(dsh_shellbox_command_pid()),
+        @"authorizationActive": @(backgroundSystemTask != nil || backgroundGrace != UIBackgroundTaskInvalid),
+        @"sessionId": backgroundTaskInfo[@"sessionId"] ?: (id)NSNull.null,
+        @"taskId": backgroundTaskInfo[@"taskId"] ?: (id)NSNull.null,
+        @"taskState": backgroundTaskInfo[@"status"] ?: @"unknown",
+        @"taskVerified": @(backgroundTaskVerified),
+        @"reason": backgroundError ?: @"", @"enabled": @(BackgroundEnabled()),
+        // Saved identifiers are navigation/reconciliation hints, never active tasks.
+        @"recoveryAvailable": @(backgroundRecovery != nil)};
+}
+
+- (id)requestBackground {
+    if (!BackgroundEnabled()) return @"disabled";
+    if (@available(iOS 26.0, *)) {
+        if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return @"requires_foreground";
+        if (!backgroundTaskInfo || ![backgroundTaskInfo[@"status"] isEqual:@"running"] ||
+            ![backgroundTaskInfo[@"runtimeInstanceId"] isEqual:runtimeInstanceID] || sessionPhase != SB_RUNNING)
+            return @"no_active_user_task";
+        NSString *key = BackgroundKey(backgroundTaskInfo);
+        if ([backgroundAttemptKeys containsObject:key]) return @"already_attempted";
+        [backgroundAttemptKeys addObject:key]; // Not cleared by lifecycle, settings, or a network bounce.
+        backgroundRequestID = [BackgroundIdentifier() stringByAppendingFormat:@".%@", NSUUID.UUID.UUIDString];
+        if (![self registerBackgroundRequest:backgroundRequestID]) {
+            backgroundRequestID = nil;
+            backgroundError = @"registration_failed";
+            [self publishBackground:@"failed"];
+            return backgroundError;
+        }
+        BGContinuedProcessingTaskRequest *request = [[BGContinuedProcessingTaskRequest alloc]
+            initWithIdentifier:backgroundRequestID title:NSLocalizedString(@"DSH task", nil)
+            subtitle:NSLocalizedString(@"Working · progress unknown", nil)];
+        request.strategy = BGContinuedProcessingTaskRequestSubmissionStrategyFail;
+        NSError *error;
+        if (![BGTaskScheduler.sharedScheduler submitTaskRequest:request error:&error]) {
+            backgroundRequestID = nil;
+            backgroundError = [NSString stringWithFormat:@"scheduler_rejected_%ld", (long)error.code];
+            [self publishBackground:@"failed"];
+            return backgroundError;
+        }
+        backgroundError = nil;
+        return @"submitted";
+    }
+    return @"requires_ios_26";
 }
 
 - (void)recordSystemMessage:(NSString *)message {
@@ -341,7 +589,19 @@ static NSString *ShellBoxInstallPayload(void) {
         (args[@"visualReplies"] && ![args[@"visualReplies"] boolValue])) {
         result([self rejection:@"shellbox_start_options_unsupported"]); return;
     }
-    if (!runtimeInstanceID) runtimeInstanceID = NSUUID.UUID.UUIDString;
+    // This point is after sb_can_initialize and service ownership checks.
+    // Retire authorization for the previous instance, never its Linux resources.
+    if (backgroundSystemTask || backgroundRequestID)
+        [self finishBackground:NO state:@"suspendedOrUnknown" cancelTask:NO];
+    ++checkpointGeneration;
+    [self endBackgroundGrace];
+    backgroundTaskInfo = nil;
+    checkpointDirty = NO;
+    backgroundTaskVerified = NO;
+    backgroundCancellationRequested = NO;
+    backgroundError = nil;
+    [backgroundAttemptKeys removeAllObjects];
+    runtimeInstanceID = NSUUID.UUID.UUIDString;
     runtimeStartedAt = [NSISO8601DateFormatter.new stringFromDate:NSDate.date];
     NSUInteger generation = ++startGeneration;
     NSString *caller = requestSource ?: @"runtime.direct";
@@ -479,7 +739,16 @@ static NSString *ShellBoxInstallPayload(void) {
     lastStart = nil;
     NSData *environment = ShellBoxEnvironment(@{});
     NSString *root = [[ShellBoxHome() URLByAppendingPathComponent:@"active/data"] path];
-    if (!runtimeInstanceID) runtimeInstanceID = NSUUID.UUID.UUIDString;
+    if (backgroundSystemTask || backgroundRequestID)
+        [self finishBackground:NO state:@"suspendedOrUnknown" cancelTask:NO];
+    ++checkpointGeneration;
+    [self endBackgroundGrace];
+    backgroundTaskInfo = nil;
+    checkpointDirty = NO;
+    backgroundTaskVerified = NO;
+    backgroundCancellationRequested = NO;
+    [backgroundAttemptKeys removeAllObjects];
+    runtimeInstanceID = NSUUID.UUID.UUIDString;
     transitionSource = @"runtime.reset";
     operationPending = YES; [self setPhase:SB_RESETTING];
     dispatch_async(kernelQueue, ^{
@@ -510,6 +779,62 @@ static NSString *ShellBoxInstallPayload(void) {
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)result {
     NSAssert(NSThread.isMainThread, @"ShellBox channel requires the platform thread");
     NSDictionary *metadata = [call.arguments isKindOfClass:NSDictionary.class] ? call.arguments : @{};
+    if ([call.method isEqual:@"getBackgroundExecutionState"]) {
+        result([self backgroundExecutionSnapshot]); return;
+    }
+    if ([call.method isEqual:@"getBackgroundCapabilities"]) {
+        BOOL supported = NO;
+        if (@available(iOS 26.0, *)) supported = YES;
+        result(@{@"continuedProcessingOSSupported": @(supported),
+            @"continuedProcessingEnabled": @(BackgroundEnabled()),
+            @"reason": !supported ? @"requires_ios_26" : @"system_may_decline",
+            @"backgroundGraceEnabled": @YES, @"permanentBackgroundExecution": @NO}); return;
+    }
+    if ([call.method isEqual:@"setBackgroundEnabled"]) {
+        if (![metadata[@"enabled"] isKindOfClass:NSNumber.class]) {
+            result([FlutterError errorWithCode:@"background_invalid_arguments" message:nil details:nil]); return;
+        }
+        [NSUserDefaults.standardUserDefaults setBool:[metadata[@"enabled"] boolValue] forKey:@"dsh.background.enabled"];
+        if (!BackgroundEnabled()) [self finishBackground:NO state:@"suspendedOrUnknown" cancelTask:NO];
+        result(nil); return;
+    }
+    if ([call.method isEqual:@"updateActiveTasks"]) {
+        NSString *instance = metadata[@"runtimeInstanceId"];
+        NSString *session = metadata[@"sessionId"], *taskID = metadata[@"taskId"], *status = metadata[@"status"];
+        if (![instance isKindOfClass:NSString.class] || ![instance isEqual:runtimeInstanceID] ||
+            ![session isKindOfClass:NSString.class] || !session.length || session.length > 256 ||
+            ![taskID isKindOfClass:NSString.class] || !taskID.length || taskID.length > 256 ||
+            ![@[@"running", @"waitingApproval", @"completed", @"error", @"unknown"] containsObject:status]) {
+            result([FlutterError errorWithCode:@"background_stale_or_invalid_task" message:nil details:nil]); return;
+        }
+        NSDictionary *next = @{ @"runtimeInstanceId": instance, @"sessionId": session, @"taskId": taskID, @"status": status };
+        BOOL same = [BackgroundKey(next) isEqual:BackgroundKey(backgroundTaskInfo)];
+        if (backgroundTaskInfo && !same && ![@[@"running", @"waitingApproval"] containsObject:status]) {
+            result([FlutterError errorWithCode:@"background_stale_or_invalid_task" message:nil details:nil]); return;
+        }
+        if (backgroundTaskInfo && !same && (backgroundSystemTask || backgroundRequestID)) {
+            result([FlutterError errorWithCode:@"background_task_busy" message:nil details:nil]); return;
+        }
+        if (same && [backgroundTaskInfo isEqual:next] && backgroundTaskVerified) { result(nil); return; }
+        if (!same) backgroundCancellationRequested = NO;
+        backgroundTaskInfo = next;
+        backgroundTaskVerified = ![status isEqual:@"unknown"];
+        if (!same) backgroundExecutionState = UIApplication.sharedApplication.applicationState == UIApplicationStateActive
+            ? @"foreground" : @"suspendedOrUnknown";
+        checkpointDirty = YES;
+        if ([@[@"completed", @"error"] containsObject:status]) {
+            [self finishBackground:[status isEqual:@"completed"] state:status cancelTask:NO];
+        } else if (![@"running" isEqual:status] && (backgroundSystemTask || backgroundRequestID)) {
+            [self finishBackground:NO state:@"suspendedOrUnknown" cancelTask:NO];
+        } else {
+            [self publishBackground:backgroundExecutionState];
+        }
+        result(nil); return;
+    }
+    if ([call.method isEqual:@"requestContinuedProcessing"]) { result([self requestBackground]); return; }
+    if ([call.method isEqual:@"cancelContinuedProcessing"]) {
+        [self finishBackground:NO state:@"expired" cancelTask:YES]; result(nil); return;
+    }
     if ([@[@"start", @"stop", @"restart", @"lifecycleRequest"] containsObject:call.method]) {
         NSString *source = metadata[@"source"];
         NSRegularExpression *tag = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z0-9_.]{1,64}$" options:0 error:nil];

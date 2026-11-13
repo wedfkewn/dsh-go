@@ -23,11 +23,42 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
   ShellBoxRuntimeBridge({ShellBoxRuntimeService? service, MethodChannel? channel})
     : _service = service ?? ShellBoxRuntimeService(channel: channel),
       _channel = _ShellBoxChannel(channel ?? const MethodChannel('dsh/shellbox')),
-      super(methods: _ShellBoxChannel(channel ?? const MethodChannel('dsh/shellbox')));
+      super(methods: _ShellBoxChannel(channel ?? const MethodChannel('dsh/shellbox'))) {
+    // One handler on the existing channel; native objects outlive these listeners.
+    (channel ?? const MethodChannel('dsh/shellbox')).setMethodCallHandler((call) async {
+      final data = Map<String, dynamic>.from(call.arguments as Map);
+      if (call.method == 'backgroundExecutionChanged') {
+        _backgroundChanges.add(data);
+        return null;
+      }
+      if (call.method == 'cancelBackgroundTask') {
+        final key = '${data['runtimeInstanceId']}/${data['sessionId']}/${data['taskId']}';
+        return await _backgroundCancellation[key]?.call() == true ? 'accepted' : 'unconfirmed';
+      }
+      throw MissingPluginException();
+    });
+  }
 
   final ShellBoxRuntimeService _service;
   final MethodChannel _channel;
   Stream<RuntimeEvent>? _statusEvents;
+  final _backgroundChanges = StreamController<Map<String, dynamic>>.broadcast();
+  final _backgroundCancellation = <String, Future<bool> Function()>{};
+  Stream<Map<String, dynamic>> get backgroundChanges => _backgroundChanges.stream;
+
+  Future<void> setBackgroundEnabled(bool enabled) =>
+      _channel.invokeMethod<void>('setBackgroundEnabled', {'enabled': enabled});
+
+  Future<void> updateActiveTask(Map<String, Object?> task, Future<bool> Function() cancel) async {
+    final key = '${task['runtimeInstanceId']}/${task['sessionId']}/${task['taskId']}';
+    await _channel.invokeMethod<void>('updateActiveTasks', task);
+    _backgroundCancellation.removeWhere((k, _) => k != key);
+    _backgroundCancellation[key] = cancel;
+  }
+
+  Future<String?> requestContinuedProcessing() => _channel.invokeMethod<String>('requestContinuedProcessing');
+  Future<void> cancelContinuedProcessing() => _channel.invokeMethod<void>('cancelContinuedProcessing');
+
 
   static RuntimeStatus _status(Map<String, dynamic> raw) {
     final error = raw['error'];
@@ -103,6 +134,13 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
 
   @override
   Future<void> appLifecycle(String event) => _channel.invokeMethod<void>('appLifecycle', {'event': event});
+
+  /// Native authorization state; does not imply guest/task liveness.
+  Future<Map<String, dynamic>> getBackgroundExecutionState() async =>
+      (await _channel.invokeMapMethod<String, dynamic>('getBackgroundExecutionState'))!;
+
+  Future<Map<String, dynamic>> getBackgroundCapabilities() async =>
+      (await _channel.invokeMapMethod<String, dynamic>('getBackgroundCapabilities'))!;
 
   @override
   Future<RuntimeStatus> status() async => _status(await _service.statusMap());
@@ -182,6 +220,12 @@ class _ShellBoxChannel extends MethodChannel {
       case 'setWorkspaceRecovery':
       case 'failureLog':
       case 'networkMetered':
+      case 'getBackgroundExecutionState':
+      case 'getBackgroundCapabilities':
+      case 'setBackgroundEnabled':
+      case 'updateActiveTasks':
+      case 'requestContinuedProcessing':
+      case 'cancelContinuedProcessing':
       case 'appLifecycle':
       case 'lifecycleRequest':
       case 'stop':

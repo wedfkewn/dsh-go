@@ -295,7 +295,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     try {
       // No ordinary input, quote or attachments are consumed. Queue rather than
       // steer an existing turn; the final predicate runs beside client.prompt.
-      ok = await chat.send(prepared.text, mode: SendMode.queue,
+      ok = await chat.send(prepared.text, userInitiated: true, mode: SendMode.queue,
         deliveryAllowed: () => _phoneSkillCurrent(prepared));
     } finally {
       if (!ok) unawaited(prepared.discard());
@@ -744,7 +744,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             current.openApproval == null) {
       ok = await chat.answer(request, [QuestionAnswer(request.questions.single.id, custom: text)]);
     } else {
-      ok = await chat.send(text, attachments: drafts, mode: mode);
+      ok = await chat.send(text, userInitiated: true, attachments: drafts, mode: mode);
       // A generation request, counted on top of its turn.
       if (ok && generate != null && mounted) ref.read(usageStatsProvider.notifier).count(UsageCount.gen);
     }
@@ -788,7 +788,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final client = ref.read(activeConnectionProvider).value?.client;
     if (client == null) return;
     final generation = client.mux.generation;
-    final ok = await ref.read(chatProvider(sessionId).notifier).send(text, attachments: images);
+    final ok = await ref.read(chatProvider(sessionId).notifier).send(text, userInitiated: true, attachments: images);
     if (ok || !_sameConnection(client, generation)) return;
     final (:quote, :body) = splitQuote(text);
     _giveBack(sessionId, quote == null ? text : body, images, quote: quote);

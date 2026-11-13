@@ -1759,6 +1759,7 @@ class _CompanionPageState extends ConsumerState<CompanionPage> implements Compan
       final sent = await chat.send(
         firstInline ? '（从现在起请扮演下面的角色，直接开始，不要复述这段设定。）\n${_persona()}\n$raw' : raw,
         verbatim: true,
+        userInitiated: true,
         beforeDeliver: capability == null || client == null
             ? null
             : (requestId) => _prepareContext(client, capability, binding.sessionId, requestId, raw, profile, current),

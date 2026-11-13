@@ -202,7 +202,7 @@ class PetOverlayActions {
       }
       final target = PetTarget(offer.host, id);
       ref.read(petAskedProvider.notifier).add(target);
-      final sent = await chat.send(text);
+      final sent = await chat.send(text, userInitiated: true);
       if (!ref.mounted) return problem(appL10n.petActionSendFailed);
       if (!sent) {
         ref.read(petAskedProvider.notifier).take(target);

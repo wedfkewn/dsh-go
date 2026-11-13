@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../state/app_info.dart';
 import '../shell/page_frame.dart';
 import '../theme/theme.dart';
 import 'settings_widgets.dart';
+import 'ios_background_page.dart';
 import '../common/row_marks.dart';
 import '../common/smooth_size.dart';
 
@@ -100,6 +102,7 @@ class _BackgroundGuidePageState extends ConsumerState<BackgroundGuidePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) return const IosBackgroundPage();
     final l10n = context.l10n;
     // Null without the native side (or on error): no row.
     final exempt = ref.watch(batteryExemptProvider).value;

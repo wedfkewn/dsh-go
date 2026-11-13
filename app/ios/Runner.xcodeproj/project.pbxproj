@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D5B000000000000000000005 /* BackgroundTasks.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000006; };
+		D5B000000000000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D5B000000000000000000002; };
 		D51B00000000000000000005 /* libarchive-COPYING in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000006; };
 		D51B00000000000000000003 /* MANIFEST.json in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000004; };
 		D51B00000000000000000001 /* rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz in Resources */ = {isa = PBXBuildFile; fileRef = D51B00000000000000000002; };
@@ -55,6 +57,9 @@ D56000000000000000000001 /* NotifyPlugin.swift in Sources */ = {isa = PBXBuildFi
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D5B000000000000000000006 /* BackgroundTasks.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTasks.framework; path = System/Library/Frameworks/BackgroundTasks.framework; sourceTree = SDKROOT; };
+		D5B000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D5B000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		D51B00000000000000000006 /* libarchive-COPYING */ = {isa = PBXFileReference; lastKnownFileType = text; path = "$(SHELLBOX_BUILD_DIR)/libarchive-COPYING"; sourceTree = "<absolute>"; };
 		D51B00000000000000000004 /* MANIFEST.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "MANIFEST.json"; path = "../../payload/MANIFEST.json"; sourceTree = SOURCE_ROOT; };
 		D51B00000000000000000002 /* rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; name = "rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz"; path = "../../payload/rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz"; sourceTree = SOURCE_ROOT; };
@@ -92,6 +97,7 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5B000000000000000000005 /* BackgroundTasks.framework in Frameworks */,
 
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -157,6 +163,7 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 				D51B00000000000000000006 /* libarchive-COPYING */,
 				D51000000000000000000004 /* ShellBoxKernel.c */,
 				D51000000000000000000002 /* ShellBoxPlugin.m */,
+				D5B000000000000000000002 /* Localizable.strings */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -267,6 +274,7 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
+				D5B000000000000000000001 /* Localizable.strings in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -344,6 +352,7 @@ D56000000000000000000002 /* NotifyPlugin.swift */ = {isa = PBXFileReference; las
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		D5B000000000000000000002 /* Localizable.strings */ = {isa = PBXVariantGroup; children = (D5B000000000000000000003, D5B000000000000000000004,); name = Localizable.strings; sourceTree = "<group>"; };
 		97C146FA1CF9000F007C117D /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (

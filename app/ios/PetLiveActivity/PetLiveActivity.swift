@@ -55,6 +55,9 @@ struct PetLiveActivity: Widget {
 private func appearance(_ phase: String) -> (face: String, symbol: String, color: Color) {
   switch phase {
   case "thinking": return ("🐱💭", "ellipsis", .cyan)
+  case "continuedProcessing": return ("🐱🛠", "arrow.triangle.2.circlepath", .orange)
+  case "authorizationEnded": return ("😺", "pause.circle.fill", .yellow)
+  case "waitingRecovery": return ("😺", "clock.badge.exclamationmark", .yellow)
   case "working": return ("🐱🛠", "gearshape.fill", .orange)
   case "waitingApproval": return ("🙀", "hand.raised.fill", .yellow)
   case "completed": return ("😸", "checkmark.circle.fill", .green)

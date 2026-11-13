@@ -1390,9 +1390,9 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
         prompt.files.isEmpty &&
         prompt.text.trim().isNotEmpty) {
       final text = prompt.text;
-      return (label: appL10n.commonRetry, onPressed: () => chat.send(text));
+      return (label: appL10n.commonRetry, onPressed: () => chat.send(text, userInitiated: true));
     }
-    return (label: appL10n.commonContinue, onPressed: () => chat.send(appL10n.commonContinue));
+    return (label: appL10n.commonContinue, onPressed: () => chat.send(appL10n.commonContinue, userInitiated: true));
   }
 
   Widget _rowWidget(ChatRow row) {

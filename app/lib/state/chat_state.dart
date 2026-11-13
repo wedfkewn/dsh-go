@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:dsh_client/dsh_client.dart';
@@ -8,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../diagnostics/app_error_log.dart';
 import '../l10n/l10n.dart';
 import '../remote/transfer_consent.dart';
+import '../runtime/runtime_state.dart';
+import '../runtime/shellbox/shellbox_runtime_bridge.dart';
 import '../usage/usage_stats.dart';
 import 'attachments.dart';
 import 'chat_error_text.dart';
@@ -539,6 +542,68 @@ class ChatController extends Notifier<ChatState> {
     if (!_currentOperation(operation)) throw const _ObsoleteChatOperation();
   }
 
+  final _backgroundRequests = <String>{};
+  String? _backgroundInstance;
+  String? _backgroundSignature;
+  Future<void> _backgroundTail = Future<void>.value();
+
+  // Only explicit sends from this app may acquire continued processing. The
+  // durable human echo and turn/start establish the real task, not the RPC ack.
+  void _syncBackgroundTask() {
+    if (!Platform.isIOS || !ref.mounted || !ref.read(activeHostProvider).isLocal) return;
+    final bridge = ref.read(runtimeBridgeProvider);
+    if (bridge is! ShellBoxRuntimeBridge || _backgroundInstance == null) return;
+    final turn = _transcript.turns.lastOrNull;
+    if (turn == null) return;
+    final previousEnd = _transcript.turns.length > 1
+        ? _transcript.turns[_transcript.turns.length - 2].endSeq ?? -1 : -1;
+    final user = _transcript.events.whereType<UserMessageEvent>().any((e) =>
+        e.isHumanPrompt && _backgroundRequests.contains(e.requestId) &&
+        e.seq > previousEnd && (turn.endSeq == null || e.seq < turn.endSeq!));
+    if (!user) return;
+    final taskId = '${turn.turn}:${turn.startSeq}';
+    final taskStatus = !_canControl ? 'unknown' : !turn.running
+        ? (turn.endReason?.isCompleted == true ? 'completed' : 'error')
+        : _transcript.pendingApprovals.isNotEmpty || _transcript.pendingQuestions.isNotEmpty
+        ? 'waitingApproval' : 'running';
+    final instance = _backgroundInstance!;
+    final signature = '$instance/$sessionId/$taskId/$taskStatus';
+    if (_backgroundSignature == signature) return;
+    _backgroundSignature = signature;
+    final operation = _client == null ? null : _ChatOperation(ref, _client!, _syncScope);
+    final scope = _syncScope;
+    _backgroundTail = _backgroundTail.then((_) async {
+      // Do not publish stale queued work following a host switch/reconnect.
+      if (!ref.mounted) return;
+      if (taskStatus == 'running' &&
+          (!identical(_syncScope, scope) || !ref.read(activeHostProvider).isLocal)) {
+        return;
+      }
+      try {
+        await bridge.updateActiveTask({
+          'runtimeInstanceId': instance, 'sessionId': sessionId,
+          'taskId': taskId, 'status': taskStatus,
+        }, () async {
+          if (operation == null || !_currentOperation(operation)) return false;
+          final current = _transcript.turns.lastOrNull;
+          if (current == null || !current.running || '${current.turn}:${current.startSeq}' != taskId) return false;
+          // Existing task-level API, never ShellBox stop. Ack is not completion.
+          try {
+            await operation.client.cancel(sessionId).timeout(const Duration(seconds: 3));
+            return true;
+          } catch (error, stack) {
+            appErrorLog.record(AppErrorSource.platform, error, stack);
+            return false;
+          }
+        });
+        if (taskStatus == 'running') await bridge.requestContinuedProcessing();
+      } catch (error, stack) {
+        _backgroundSignature = null; // A later real event can publish again.
+        appErrorLog.record(AppErrorSource.platform, error, stack);
+      }
+    });
+  }
+
   bool _isMoving(String requestId) {
     final operation = _moving[requestId];
     return operation != null && _currentOperation(operation);
@@ -564,6 +629,9 @@ class ChatController extends Notifier<ChatState> {
     // Reconnecting to the same Host keeps the existing conversation consent.
     final host = ref.watch(activeHostProvider);
     if (_approvalHost != host) {
+      _backgroundRequests.clear();
+      _backgroundSignature = null;
+      _backgroundInstance = null;
       // These requests belong to the previous Host, even if the new Host has
       // the same session id. A new watch replays its own mux's pending requests.
       // Retire only the local cards; do not answer or cancel the old Host's work.
@@ -580,6 +648,7 @@ class ChatController extends Notifier<ChatState> {
     _moving.clear();
     _synchronized = false;
     _syncScope = Object();
+    _backgroundSignature = null;
     _resyncFuture = null;
     _resyncOwner = null;
     // Kept a minute after the last screen leaves (a quick switch back reuses
@@ -709,6 +778,7 @@ class ChatController extends Notifier<ChatState> {
     _stopTimeout?.cancel();
     _stoppingOperation = null;
     if (!building) {
+      _syncBackgroundTask();
       state = state.copyWith(syncing: true, stopping: false, loadingOlder: false, clearSyncError: epoch != null);
     }
   }
@@ -898,6 +968,7 @@ class ChatController extends Notifier<ChatState> {
               if (!_syncReady.isCompleted) _syncReady.complete(true);
               _activateInteraction();
             } else if (changed) {
+              _syncBackgroundTask();
               _schedule();
             }
           },
@@ -1208,6 +1279,7 @@ class ChatController extends Notifier<ChatState> {
       goal: _transcript.goal,
       clockSkew: _skew ?? Duration.zero,
     );
+    _syncBackgroundTask();
   }
 
   /// Our pending prompts with their inbox slot, plus prompts waiting in the
@@ -1291,6 +1363,7 @@ class ChatController extends Notifier<ChatState> {
     List<DraftAttachment> attachments = const [],
     SendMode mode = SendMode.now,
     bool verbatim = false,
+    bool userInitiated = false,
     Future<bool> Function(String requestId)? beforeDeliver,
     bool Function()? deliveryAllowed,
   }) async {
@@ -1366,6 +1439,24 @@ class ChatController extends Notifier<ChatState> {
             for (final p in _pending) p.requestId == requestId ? p.withMode(SendMode.steer) : p,
           ]);
           state = state.copyWith(pending: _placePending());
+        }
+      }
+      if (Platform.isIOS && userInitiated && host.isLocal) {
+        final bridge = ref.read(runtimeBridgeProvider);
+        if (bridge is ShellBoxRuntimeBridge) {
+          try {
+            final snapshot = await bridge.getBackgroundExecutionState();
+            if (!_currentOperation(operation)) return false;
+            final instance = snapshot['runtimeInstanceId'] as String?;
+            if (_backgroundInstance != instance) {
+              _backgroundRequests.clear();
+              _backgroundSignature = null;
+              _backgroundInstance = instance;
+            }
+            _backgroundRequests.add(requestId);
+          } catch (error, stack) {
+            appErrorLog.record(AppErrorSource.platform, error, stack);
+          }
         }
       }
       final notice = await _deliver(operation, body, attachments, receipts, requestId: requestId, mode: promptMode,
