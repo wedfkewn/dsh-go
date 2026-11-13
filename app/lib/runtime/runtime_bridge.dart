@@ -152,6 +152,7 @@ class RuntimeStatus {
     this.dshVersion,
     this.nodeVersion,
     this.baseUrl,
+    this.workingDirectory,
     this.token,
     this.managedSkillGeneration,
     this.error,
@@ -189,6 +190,7 @@ class RuntimeStatus {
   final String? dshVersion;
   final String? nodeVersion;
   final String? baseUrl;
+  final String? workingDirectory;
   final String? token;
 
   /// Native grant generation for bundled-skill writes only (runtime ready and
@@ -286,6 +288,7 @@ class RuntimeStatus {
     dshVersion: map['dshVersion'] as String?,
     nodeVersion: map['nodeVersion'] as String?,
     baseUrl: map['baseUrl'] as String?,
+    workingDirectory: map['workingDirectory'] as String?,
     token: map['token'] as String?,
     managedSkillGeneration: switch (map['managedSkillGeneration']) {
       final int value when value > 0 => value,

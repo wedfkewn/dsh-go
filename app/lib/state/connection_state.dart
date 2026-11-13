@@ -77,10 +77,12 @@ class LocalConnectionController extends AsyncNotifier<HostConnection?> {
     final endpoint = r.watch(
       localRuntimeProvider.select((s) {
         final st = s.status;
-        return st.phase == RuntimePhase.running ? (st.baseUrl, st.token) : (null, null);
+        return st.phase == RuntimePhase.running
+            ? (st.baseUrl, st.token, st.workingDirectory)
+            : (null, null, null);
       }),
     );
-    final (baseUrl, token) = endpoint;
+    final (baseUrl, token, workingDirectory) = endpoint;
     if (baseUrl == null || token == null) return null;
 
     final client = await r.read(localClientConnectorProvider)(baseUri: Uri.parse(baseUrl), token: token);
@@ -119,7 +121,7 @@ class LocalConnectionController extends AsyncNotifier<HostConnection?> {
     if (apiKey.isNotEmpty) await _pushKey(client, apiKey);
     if (!r.mounted) return null;
     if (readyFailure case final failure?) Error.throwWithStackTrace(failure.$1, failure.$2);
-    final connection = HostConnection(client: client, isLocal: true);
+    final connection = HostConnection(client: client, isLocal: true, workingDirectory: workingDirectory);
     // HTTP is usable now; keep build pending so ready failures retain Riverpod's retry policy.
     state = AsyncData(connection);
     await ready;

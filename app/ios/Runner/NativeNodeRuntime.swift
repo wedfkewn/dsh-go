@@ -252,7 +252,8 @@ import Foundation
       self.phase = "running"
       self.deadline = nil
       self.details = ["baseUrl": base, "token": token, "runtimeInstanceId": expected,
-                      "nodeVersion": record["nodeVersion"] ?? ""]
+                      "nodeVersion": record["nodeVersion"] ?? "",
+                      "workingDirectory": self.root.appendingPathComponent("home/workspace").path]
       self.publishStatus()
       self.log("authenticated DSH readiness (Node " + (record["nodeVersion"] as? String ?? "unknown") + ")")
     }

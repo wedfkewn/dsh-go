@@ -61,14 +61,15 @@ class DirectoryShortcut {
 /// phone also its shared storage (when the engine can see it).
 List<DirectoryShortcut> directoryShortcuts({required bool local, required bool phoneStorage, String? workingDir}) {
   if (local) {
+    final defaultDir = workingDir ?? localWorkspaceDir;
     return [
       DirectoryShortcut(
         AppIcons.defaultFolder,
         appL10n.remoteDirectoryDefault,
-        localWorkspaceDir,
-        subtitle: displayPath(localWorkspaceDir, local: true),
+        defaultDir,
+        subtitle: displayPath(defaultDir, local: true),
       ),
-      DirectoryShortcut(AppIcons.home, appL10n.remoteDirectoryHome, localHome, subtitle: '~'),
+      DirectoryShortcut(AppIcons.home, appL10n.remoteDirectoryHome, workingDir == null ? localHome : null, subtitle: '~'),
       if (phoneStorage) ...[
         DirectoryShortcut(AppIcons.phoneStorage, appL10n.remoteDirectoryPhoneStorage, phoneStorageRoot),
         DirectoryShortcut(

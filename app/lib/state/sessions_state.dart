@@ -625,7 +625,7 @@ class SessionsController extends AsyncNotifier<List<SessionSummary>> {
     final created = await createSessionInWorkspace(
       conn.client,
       workspaceId,
-      cwd: conn.isLocal ? localWorkspaceDir : conn.workingDirectory,
+      cwd: conn.workingDirectory ?? (conn.isLocal ? localWorkspaceDir : null),
       checkCurrent: checkCurrent,
     );
     checkCurrent();
