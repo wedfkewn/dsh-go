@@ -207,7 +207,7 @@ class PhoneController extends Notifier<PhoneState> {
       final now = ref.read(localRuntimeProvider).status;
       if (!now.inSafeMode && (now.phase == RuntimePhase.running || now.phase == RuntimePhase.starting)) {
         restarting = true;
-        unawaited(EngineControl.restart(ref.container));
+        unawaited(EngineControl.restart(ref.container, source: 'phone_toggle'));
       }
       unawaited(refreshStatus());
       return PhoneToggleResult(ok: true, restarting: restarting);

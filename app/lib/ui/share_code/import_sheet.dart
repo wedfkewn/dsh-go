@@ -137,7 +137,7 @@ class _ShareImportSheetState extends ConsumerState<ShareImportSheet> {
     setState(() => _restarting = true);
     final container = ProviderScope.containerOf(context, listen: false);
     final navigator = Navigator.of(context);
-    unawaited(EngineControl.restart(container));
+    unawaited(EngineControl.restart(container, source: 'share_import'));
     navigator.pop();
   }
 

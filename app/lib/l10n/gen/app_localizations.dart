@@ -31910,6 +31910,42 @@ abstract class L10n {
   /// **'在「{path}」里调整'**
   String shellQuickPanelHint(String path);
 
+  /// No description provided for @shellBoxStopBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止受阻（StopBlocked）'**
+  String get shellBoxStopBlocked;
+
+  /// No description provided for @shellBoxStopBlockedDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'5 秒内未能确认服务已停止。Linux 和仍在使用的资源会保留；普通文件读取可能延迟返回。可重试停止，或在应用切换器中上滑退出应用。后者由你结束整个应用进程，不是应用强制释放仍在使用的资源。停止确认前不能启动、重启或清除数据。'**
+  String get shellBoxStopBlockedDetail;
+
+  /// No description provided for @shellBoxRetryStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试停止'**
+  String get shellBoxRetryStop;
+
+  /// No description provided for @shellBoxResetting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在清除本地用户数据'**
+  String get shellBoxResetting;
+
+  /// No description provided for @shellBoxResetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除本地用户数据'**
+  String get shellBoxResetTitle;
+
+  /// No description provided for @shellBoxResetDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'只清除 /root 中未勾选保留的用户数据。已安装的 Linux、Node 和 DSH 保留；这不会重新安装或修复运行环境。'**
+  String get shellBoxResetDetail;
+
   /// The star prompt's first line. hours is the whole hours of use so far, rounded down; 0 is half an hour (the first ask comes after 30 minutes). The word joiner keeps the ~ on the line of the word before it.
   ///
   /// In zh, this message translates to:

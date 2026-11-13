@@ -10667,6 +10667,12 @@
       }
     }
   },
+  "shellBoxStopBlocked": "停止受阻（StopBlocked）",
+  "shellBoxStopBlockedDetail": "5 秒内未能确认服务已停止。Linux 和仍在使用的资源会保留；普通文件读取可能延迟返回。可重试停止，或在应用切换器中上滑退出应用。后者由你结束整个应用进程，不是应用强制释放仍在使用的资源。停止确认前不能启动、重启或清除数据。",
+  "shellBoxRetryStop": "重试停止",
+  "shellBoxResetting": "正在清除本地用户数据",
+  "shellBoxResetTitle": "清除本地用户数据",
+  "shellBoxResetDetail": "只清除 /root 中未勾选保留的用户数据。已安装的 Linux、Node 和 DSH 保留；这不会重新安装或修复运行环境。",
   "starPromptTitle": "{hours, plural, =0{本鱼已经在 DSH Go 里陪你半个小时啦⁠~} =1{本鱼已经在 DSH Go 里陪你一个小时啦⁠~} other{本鱼已经在 DSH Go 里陪你 {hours} 个小时啦⁠~}}",
   "@starPromptTitle": {
     "description": "The star prompt's first line. hours is the whole hours of use so far, rounded down; 0 is half an hour (the first ask comes after 30 minutes). The word joiner keeps the ~ on the line of the word before it.",

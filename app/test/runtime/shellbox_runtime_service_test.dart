@@ -144,32 +144,90 @@ void main() {
     }
   });
 
-  testWidgets('polling deduplicates, emits notices, cancels and resumes', (tester) async {
+  test('polling deduplicates, emits notices, cancels and resumes', () async {
+    // This exercises channel polling rather than frames. Advancing the widget
+    // fake clock after cancelling the broadcast listener hangs in pump().
     var phase = 'starting';
     var calls = 0;
-    messenger.setMockMethodCallHandler(channel, (_) async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'logSnapshot') return {'entries': [], 'throughSeq': 0};
       calls++;
       return {'phase': phase, if (calls == 1) 'notices': ['Preparing']};
     });
     final bridge = ShellBoxRuntimeBridge();
     final events = <RuntimeEvent>[];
     StreamSubscription<RuntimeEvent> subscription = bridge.events.listen(events.add);
-    await tester.pump();
+    await Future<void>.delayed(Duration.zero);
     expect(events.whereType<RuntimeStatusEvent>().single.status.phase, RuntimePhase.starting);
     expect(events.whereType<RuntimeNoticeEvent>().single.text, 'Preparing');
-    await tester.pump(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
     expect(events.whereType<RuntimeStatusEvent>().length, 1);
     phase = 'running';
-    await tester.pump(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
     expect(events.whereType<RuntimeStatusEvent>().last.status.phase, RuntimePhase.running);
     await subscription.cancel();
     final stoppedAt = calls;
-    await tester.pump(const Duration(seconds: 2));
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
     expect(calls, stoppedAt);
     subscription = bridge.events.listen(events.add);
-    await tester.pump();
+    await Future<void>.delayed(Duration.zero);
     expect(calls, stoppedAt + 1);
     await subscription.cancel();
+  });
+
+  test('caller tags survive asynchronous start and stop through the bridge', () async {
+    final requests = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      requests.add(call);
+      return null;
+    });
+    final bridge = ShellBoxRuntimeBridge();
+    await bridge.lifecycleRequest('restart', 'phone_toggle', () async {
+      await Future<void>.delayed(Duration.zero);
+      await bridge.stop();
+      await bridge.start();
+    });
+    expect(requests.map((call) => call.method), ['lifecycleRequest', 'stop', 'start']);
+    for (final call in requests) {
+      expect((call.arguments as Map)['source'], 'phone_toggle');
+    }
+  });
+
+  test('StopBlocked is preserved and stop failures propagate unchanged', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'stop') throw PlatformException(code: 'shellbox_stop_blocked');
+      return {
+        'phase': 'stopBlocked',
+        'error': {'code': 'shellbox_stop_blocked', 'message': 'Retry stop'},
+      };
+    });
+    expect((await service.status()).phase, LocalRuntimeServicePhase.stopBlocked);
+    expect((await ShellBoxRuntimeBridge().status()).phase, RuntimePhase.stopBlocked);
+    await expectLater(service.stop(), throwsA(isA<PlatformException>().having(
+      (error) => error.code, 'code', 'shellbox_stop_blocked',
+    )));
+  });
+
+  test('guest log polling orders sequences and does not repeat snapshots', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'logSnapshot') {
+        return {
+          'entries': [
+            {'seq': 2, 'line': 'stderr line', 'stream': 'stderr'},
+            {'seq': 1, 'line': 'stdout line', 'stream': 'stdout'},
+          ],
+          'throughSeq': 2,
+        };
+      }
+      return {'phase': 'stopped'};
+    });
+    final events = <RuntimeEvent>[];
+    final sub = ShellBoxRuntimeBridge().events.listen(events.add);
+    await Future<void>.delayed(Duration.zero);
+    expect(events.whereType<RuntimeLogsEvent>().single.entries.map((e) => e.seq), [1, 2]);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    expect(events.whereType<RuntimeLogsEvent>().length, 1);
+    await sub.cancel();
   });
 
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,7 @@ import '../web/local_web_screen.dart';
 import 'engine_status.dart';
 import 'local_uninstall.dart';
 import 'log_view.dart';
+import 'stop_blocked_card.dart';
 import 'workspace_recovery_settings.dart';
 
 /// `rN-dsh…-HASH` → `rN · HASH8`; anything else is shown as is.
@@ -47,13 +49,16 @@ String engineDetail(RuntimeStatus status) => switch (status.phase) {
         : status.tidyingFiles
         ? appL10n.phoneEngineTidyingFilesEllipsis
         : appL10n.phoneEngineStartingEllipsis,
+  RuntimePhase.stopBlocked => appL10n.shellBoxStopBlockedDetail,
+  RuntimePhase.resetting => appL10n.shellBoxResetting,
   RuntimePhase.stopping =>
     isLocalStartupFailure(status)
         ? appL10n.phoneStartupFailureStoppingDetail(
             humanizeRuntimeError(status.error) ?? appL10n.phoneEngineErrorSeeLogs,
           )
         : appL10n.phoneEngineStoppingEllipsis,
-  RuntimePhase.installed => status.inSafeMode ? appL10n.phoneEngineStoppedNextSafe : appL10n.commonStopped,
+  RuntimePhase.installed || RuntimePhase.stopped =>
+    status.inSafeMode ? appL10n.phoneEngineStoppedNextSafe : appL10n.commonStopped,
   RuntimePhase.installing => appL10n.phoneEngineInstallingRuntime,
   RuntimePhase.notInstalled => appL10n.phoneEngineRuntimeNotInstalled,
   RuntimePhase.error =>
@@ -121,6 +126,7 @@ class EngineScreen extends ConsumerWidget {
       slivers: [
         SliverList.list(
           children: [
+            const StopBlockedCard(),
             if (!failureCard)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -181,8 +187,11 @@ class EngineScreen extends ConsumerWidget {
             if (!missing)
               SettingsSection(
                 children: [
-                  _ResetRow(enabled: !status.phase.isBusy),
-                  LocalUninstallRow(enabled: !status.phase.isBusy),
+                  _ResetRow(
+                    enabled: !status.phase.isBusy &&
+                        (!Platform.isIOS || (status.phase != RuntimePhase.stopBlocked && status.phase != RuntimePhase.running)),
+                  ),
+                  if (!Platform.isIOS) LocalUninstallRow(enabled: !status.phase.isBusy),
                 ],
               ),
           ],
@@ -222,7 +231,11 @@ class EngineActions extends ConsumerWidget {
         ],
       ),
     );
-    if (ok == true) await ref.read(localRuntimeProvider.notifier).stop();
+    if (ok == true) {
+      await ref.read(runtimeBridgeProvider).lifecycleRequest(
+        'stop', 'engine_screen.stop', () => ref.read(localRuntimeProvider.notifier).stop(),
+      );
+    }
   }
 
   @override
@@ -238,7 +251,7 @@ class EngineActions extends ConsumerWidget {
       );
     }
     final running = phase == RuntimePhase.running;
-    final down = phase == RuntimePhase.installed || phase == RuntimePhase.error;
+    final down = phase == RuntimePhase.installed || phase == RuntimePhase.stopped || phase == RuntimePhase.error;
     return Row(
       children: [
         Expanded(
@@ -247,7 +260,7 @@ class EngineActions extends ConsumerWidget {
             label: phase == RuntimePhase.error ? l10n.phoneEngineStartAgain : l10n.phoneEngineStart,
             busy: phase == RuntimePhase.starting || phase == RuntimePhase.installing,
             primary: down,
-            onTap: down ? () => unawaited(EngineControl.restart(container)) : null,
+            onTap: down ? () => unawaited(EngineControl.restart(container, source: 'engine_screen.restart')) : null,
           ),
         ),
         const SizedBox(width: gap),
@@ -264,7 +277,7 @@ class EngineActions extends ConsumerWidget {
           child: _Capsule(
             icon: AppIcons.restart,
             label: l10n.phoneEngineRestart,
-            onTap: running ? () => unawaited(EngineControl.restart(container)) : null,
+            onTap: running ? () => unawaited(EngineControl.restart(container, source: 'engine_screen.restart')) : null,
           ),
         ),
       ],
@@ -365,6 +378,7 @@ class _ResetRow extends ConsumerWidget {
     final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       await ref.read(localRuntimeProvider.notifier).resetKeeping(keep);
+      if (Platform.isIOS) return;
       // The root gate shows setup again once the phase reads notInstalled.
       navigator.popUntil((r) => r.isFirst);
     } catch (_) {
@@ -380,7 +394,8 @@ class _ResetRow extends ConsumerWidget {
       tinted: false,
       danger: enabled,
       spot: Spots.engineReset,
-      subtitle: l10n.phoneEngineResetHint,
+      title: Platform.isIOS ? l10n.shellBoxResetTitle : null,
+      subtitle: Platform.isIOS ? l10n.shellBoxResetDetail : l10n.phoneEngineResetHint,
       chevron: false,
       onTap: enabled ? () => _reset(context, ref) : null,
     );
@@ -414,19 +429,20 @@ class _ResetDialogState extends State<_ResetDialog> {
     final l10n = context.l10n;
     final colors = DshColors.of(context);
     return AlertDialog(
-      title: Text(l10n.phoneEngineResetTitle),
+      title: Text(Platform.isIOS ? l10n.shellBoxResetTitle : l10n.phoneEngineResetTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(switch ((_keep.uiAndSkills, _keep.pluginsAndSettings)) {
-            (true, true) => l10n.phoneResetBodyChatsWorkspaces,
-            (true, false) => l10n.phoneResetBodyWithPlugins,
-            (false, true) => l10n.phoneResetBodyWithUi,
-            (false, false) => l10n.phoneResetBodyEverything,
-          }),
+          if (!Platform.isIOS)
+            Text(switch ((_keep.uiAndSkills, _keep.pluginsAndSettings)) {
+              (true, true) => l10n.phoneResetBodyChatsWorkspaces,
+              (true, false) => l10n.phoneResetBodyWithPlugins,
+              (false, true) => l10n.phoneResetBodyWithUi,
+              (false, false) => l10n.phoneResetBodyEverything,
+            }),
           const SizedBox(height: 8),
-          Text(l10n.phoneResetAlsoDeletes),
+          Text(Platform.isIOS ? l10n.shellBoxResetDetail : l10n.phoneResetAlsoDeletes),
           const SizedBox(height: 12),
           _KeepOption(
             label: l10n.phoneEngineKeepUiSkills,

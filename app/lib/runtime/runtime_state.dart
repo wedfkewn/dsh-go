@@ -82,6 +82,16 @@ class LocalRuntimeController extends Notifier<LocalRuntimeState> {
     }
   }
 
+  /// Foreground synchronization never starts or stops the resident native guest.
+  Future<RuntimeStatus> resumeFromNative() async {
+    final r = ref;
+    final revision = ++_statusRevision;
+    await _bridge.appLifecycle('resumed');
+    final status = await _bridge.status();
+    if (r.mounted && revision == _statusRevision) _onEvent(RuntimeStatusEvent(status));
+    return status;
+  }
+
   void _onEvent(RuntimeEvent event) {
     switch (event) {
       case RuntimeStatusEvent(:final status):

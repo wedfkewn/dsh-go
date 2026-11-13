@@ -34,7 +34,7 @@ Future<void> clearAutoDefaultPreset(ProviderContainer container) async {
     tmp.renameSync(file.path);
     debugPrint('Permissions: cleared the stored Auto default for new chats');
     // Safe mode runs its own profile; leaving it starts the fixed one.
-    if (!container.read(localRuntimeProvider).status.inSafeMode) await EngineControl.restart(container);
+    if (!container.read(localRuntimeProvider).status.inSafeMode) await EngineControl.restart(container, source: 'permission_repair');
   } catch (error) {
     // The next connect tries again.
     debugPrint('Permissions: could not clear the stored Auto default: $error');

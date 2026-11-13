@@ -9,6 +9,9 @@ import 'companion/companion_initiative_owner.dart' show companionInitiativeProvi
 import 'l10n/l10n.dart';
 import 'performance/performance_state.dart';
 import 'performance/refresh_rate.dart';
+import 'runtime/runtime_state.dart';
+import 'runtime/runtime_bridge.dart';
+import 'state/connection_state.dart';
 import 'state/app_info.dart';
 import 'state/appearance_state.dart';
 import 'state/locale_state.dart';
@@ -77,6 +80,25 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!Platform.isIOS) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_resumeLocalRuntime());
+    } else {
+      unawaited(ref.read(runtimeBridgeProvider).appLifecycle(state.name));
+    }
+  }
+
+  Future<void> _resumeLocalRuntime() async {
+    final status = await ref.read(localRuntimeProvider.notifier).resumeFromNative();
+    if (!mounted) return;
+    if (status.phase == RuntimePhase.running) {
+      // A fresh authenticated loopback connection checks the existing endpoint.
+      ref.invalidate(localConnectionProvider);
+    }
   }
 
   /// 跟随系统: the system language changed while the app was open.

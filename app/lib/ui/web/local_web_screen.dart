@@ -139,7 +139,7 @@ class _NotRunning extends ConsumerWidget {
                       : canStart
                       ? FilledButton(
                           style: FilledButton.styleFrom(minimumSize: const Size(160, 44)),
-                          onPressed: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context))),
+                          onPressed: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context), source: 'ensureStarted.web')),
                           child: Text(failed ? context.l10n.webRestart : context.l10n.webStartEngine),
                         )
                       : null,

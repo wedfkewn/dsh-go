@@ -197,7 +197,7 @@ Future<void> offerEngineRestart(BuildContext context, ProviderContainer containe
   );
   if (restart != true) return;
   try {
-    if (await EngineControl.restart(container)) return;
+    if (await EngineControl.restart(container, source: 'plugin_actions')) return;
   } on Object {
     // Native start/stop errors need the same visible failure as a stop timeout.
   }
@@ -518,7 +518,7 @@ Future<bool> removePluginBundle(BuildContext context, PluginBundle bundle, {Rout
               ? SnackBarAction(
                   label: l10n.pluginsRestartNow,
                   onPressed: () {
-                    if (owned()) unawaited(EngineControl.restart(container));
+                    if (owned()) unawaited(EngineControl.restart(container, source: 'plugin_actions'));
                   },
                 )
               : null,
@@ -565,7 +565,7 @@ Future<void> togglePluginBundle(BuildContext context, PluginBundle bundle, bool 
             action: local
                 ? SnackBarAction(
                     label: l10n.pluginsRestartNow,
-                    onPressed: () => unawaited(EngineControl.restart(container)),
+                    onPressed: () => unawaited(EngineControl.restart(container, source: 'plugin_actions')),
                   )
                 : null,
           ),

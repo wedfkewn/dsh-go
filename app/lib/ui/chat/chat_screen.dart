@@ -1537,7 +1537,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
       RuntimePhase.installed => ChatIdleAction(
         message: l10n.shellEngineNotRunning,
         label: l10n.shellStartEngine,
-        onTap: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context, listen: false))),
+        onTap: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context, listen: false), source: 'ensureStarted.chat')),
       ),
       _ => null,
     };

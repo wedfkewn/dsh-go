@@ -18,7 +18,8 @@ import '../../runtime/runtime_state.dart';
 import '../../state/onboarding_state.dart';
 import '../common/app_sheet.dart';
 import '../common/progress_halo.dart';
-import '../engine/engine_status.dart' show humanizeRuntimeError;
+import '../engine/engine_status.dart' show humanizeRuntimeError, isRuntimeStopBlocked;
+import '../engine/stop_blocked_card.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'runtime_setup_page.dart' show showRuntimeLogSheet;
@@ -96,19 +97,25 @@ enum SetupRuntime {
   failed,
 }
 
-SetupRuntime setupRuntimeOf(RuntimeStatus status, {bool launchFailed = false}) => switch (status.phase) {
-  RuntimePhase.installing => SetupRuntime.unpacking,
-  RuntimePhase.installed ||
-  RuntimePhase.starting ||
-  RuntimePhase.running ||
-  RuntimePhase.stopping => SetupRuntime.ready,
-  // An engine error with a current runtime is the engine's business, not setup's.
-  RuntimePhase.error =>
-    status.installedVersion != null && status.installedVersion == status.bundledVersion
-        ? SetupRuntime.ready
-        : SetupRuntime.failed,
-  RuntimePhase.notInstalled => launchFailed ? SetupRuntime.failed : SetupRuntime.absent,
-};
+SetupRuntime setupRuntimeOf(RuntimeStatus status, {bool launchFailed = false}) {
+  if (isRuntimeStopBlocked(status)) return SetupRuntime.failed;
+  return switch (status.phase) {
+    RuntimePhase.installing => SetupRuntime.unpacking,
+    RuntimePhase.installed ||
+    RuntimePhase.stopped ||
+    RuntimePhase.starting ||
+    RuntimePhase.running ||
+    RuntimePhase.stopping ||
+    RuntimePhase.resetting => SetupRuntime.ready,
+    RuntimePhase.stopBlocked => SetupRuntime.failed,
+    // An engine error with a current runtime is the engine's business, not setup's.
+    RuntimePhase.error =>
+      status.installedVersion != null && status.installedVersion == status.bundledVersion
+          ? SetupRuntime.ready
+          : SetupRuntime.failed,
+    RuntimePhase.notInstalled => launchFailed ? SetupRuntime.failed : SetupRuntime.absent,
+  };
+}
 
 final setupRuntimeProvider = Provider<SetupRuntime>(
   (ref) => setupRuntimeOf(
@@ -389,6 +396,7 @@ class _SetupProgressCapsuleState extends ConsumerState<SetupProgressCapsule> {
     final runtime = ref.watch(setupRuntimeProvider);
     final progress = ref.watch(localRuntimeProvider.select((s) => s.progress));
     final visible = runtime != SetupRuntime.ready || _celebrating;
+    final blocked = isRuntimeStopBlocked(ref.watch(localRuntimeProvider).status);
 
     final style = AppType.tabular(theme.textTheme.labelMedium!);
     final line = MediaQuery.textScalerOf(context).scale(style.fontSize!) * style.height!;
@@ -404,8 +412,8 @@ class _SetupProgressCapsuleState extends ConsumerState<SetupProgressCapsule> {
       ),
       SetupRuntime.failed => (
         Icon(AppIcons.error, size: markSize, color: colors.danger),
-        l10n.setupCapsuleFailed,
-        l10n.setupCapsuleFailed,
+        blocked ? l10n.shellBoxStopBlocked : l10n.setupCapsuleFailed,
+        blocked ? l10n.shellBoxStopBlocked : l10n.setupCapsuleFailed,
         colors.danger,
       ),
       _ when runtime == SetupRuntime.unpacking && percent != null => (
@@ -482,6 +490,7 @@ class _SetupStatusSheet extends ConsumerWidget {
     final colors = DshColors.of(context);
     final runtime = ref.watch(setupRuntimeProvider);
     final state = ref.watch(localRuntimeProvider);
+    if (isRuntimeStopBlocked(state.status)) return const StopBlockedCard();
     final eta = ref.watch(installEtaProvider);
     final failed = runtime == SetupRuntime.failed;
     final unavailable = ref.watch(localInstallUnavailableProvider);

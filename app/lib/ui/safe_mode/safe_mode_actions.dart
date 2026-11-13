@@ -161,11 +161,11 @@ abstract final class SafeModeActions {
   }
 
   /// Starts again in the current mode.
-  static Future<void> retry(BuildContext context) => EngineControl.restart(_container(context));
+  static Future<void> retry(BuildContext context) => EngineControl.restart(_container(context), source: 'safe_mode.retry');
 
   /// Starts normally from a failed safe mode (the two-minute trial applies).
   static Future<void> startNormal(BuildContext context) =>
-      EngineControl.restart(_container(context), mode: EngineMode.normal);
+      EngineControl.restart(_container(context), mode: EngineMode.normal, source: 'safe_mode.retry');
 
   /// The button for [moveAsideAndRetry]: names what it moves.
   static String moveAsideLabel(List<SafeHazard> hazards) =>

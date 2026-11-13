@@ -16,6 +16,9 @@ enum LocalRuntimeServicePhase {
   starting,
   running,
   stopping,
+  stopped,
+  stopBlocked,
+  resetting,
   error,
 }
 

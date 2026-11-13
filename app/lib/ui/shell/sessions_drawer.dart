@@ -862,13 +862,13 @@ class _EmptyState extends ConsumerWidget {
         title: l10n.shellEngineStarting,
         message: l10n.shellChatsAfterStarting,
       ),
-      RuntimePhase.installed || RuntimePhase.error => EmptyView(
+      RuntimePhase.installed || RuntimePhase.stopped || RuntimePhase.error => EmptyView(
         compact: true,
         icon: AppIcons.power,
         title: l10n.shellEngineNotRunning,
         message: l10n.shellChatsAfterStarting,
         actionLabel: l10n.shellStartEngine,
-        onAction: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context))),
+        onAction: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context), source: 'ensureStarted.drawer')),
       ),
       RuntimePhase.notInstalled when status.runtimeMissing => EmptyView(
         compact: true,

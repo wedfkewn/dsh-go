@@ -10,12 +10,15 @@ enum RuntimePhase {
   starting,
   running,
   stopping,
+  stopped,
+  stopBlocked,
+  resetting,
   error;
 
   static RuntimePhase parse(Object? wire) =>
       RuntimePhase.values.firstWhere((p) => p.name == wire, orElse: () => RuntimePhase.error);
 
-  bool get isBusy => this == installing || this == starting || this == stopping;
+  bool get isBusy => this == installing || this == starting || this == stopping || this == resetting;
 }
 
 /// Which profile the local DSH boots: the user's `web`, or the rescue profile.
@@ -583,6 +586,11 @@ class RuntimeBridge {
   /// [mode] null keeps the current mode; [EngineMode.normal] while in safe mode starts the
   /// two-minute trial back in normal mode. [visualReplies] writes the dsh-ui section
   /// into the managed AGENTS.md.
+  /// iOS lifecycle metadata; portable runtimes keep their existing channel.
+  Future<T> lifecycleRequest<T>(String action, String source, Future<T> Function() operation) => operation();
+
+  Future<void> appLifecycle(String event) async {}
+
   Future<void> start({
     Map<String, String> env = const {},
     bool phoneStorage = false,

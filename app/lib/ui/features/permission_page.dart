@@ -139,7 +139,7 @@ class _PermissionPageState extends ConsumerState<PermissionPage> {
     await notifier.setPhoneStorage(next);
     // Binds are fixed at launch: restart a running engine so the change applies.
     if (ref.read(localRuntimeProvider).status.phase == RuntimePhase.running && mounted) {
-      unawaited(EngineControl.restart(ProviderScope.containerOf(context, listen: false)));
+      unawaited(EngineControl.restart(ProviderScope.containerOf(context, listen: false), source: 'permission_page'));
     }
   }
 

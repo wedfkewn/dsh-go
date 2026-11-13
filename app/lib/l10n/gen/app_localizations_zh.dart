@@ -17445,6 +17445,25 @@ class L10nZh extends L10n {
   }
 
   @override
+  String get shellBoxStopBlocked => '停止受阻（StopBlocked）';
+
+  @override
+  String get shellBoxStopBlockedDetail =>
+      '5 秒内未能确认服务已停止。Linux 和仍在使用的资源会保留；普通文件读取可能延迟返回。可重试停止，或在应用切换器中上滑退出应用。后者由你结束整个应用进程，不是应用强制释放仍在使用的资源。停止确认前不能启动、重启或清除数据。';
+
+  @override
+  String get shellBoxRetryStop => '重试停止';
+
+  @override
+  String get shellBoxResetting => '正在清除本地用户数据';
+
+  @override
+  String get shellBoxResetTitle => '清除本地用户数据';
+
+  @override
+  String get shellBoxResetDetail => '只清除 /root 中未勾选保留的用户数据。已安装的 Linux、Node 和 DSH 保留；这不会重新安装或修复运行环境。';
+
+  @override
   String starPromptTitle(int hours) {
     String _temp0 = intl.Intl.pluralLogic(
       hours,

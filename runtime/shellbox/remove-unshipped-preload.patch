@@ -1,0 +1,58 @@
+--- a/kernel/exec.c
++++ b/kernel/exec.c
+@@ -899,32 +899,8 @@
+             }
+         }
+ 
+-        // Inject LD_PRELOAD for zero_malloc.so to zero large malloc/free.
+-        // V8's Zone allocator reuses freed memory without zeroing, causing
+-        // stale pointer dereferences. This library zeros blocks >= 4096 bytes
+-        // on both malloc and free (Zone segments are >= 8KB).
+-        if (strcmp(base, "node") == 0) {
+-            static const char *ld_preload = "LD_PRELOAD=/lib/zero_free.so";
+-            size_t env_len = strlen(ld_preload) + 1;
+-
+-            // Check if LD_PRELOAD is already set
+-            bool found = false;
+-            char *q = envp;
+-            while (*q != '\0') {
+-                if (strncmp(q, "LD_PRELOAD=", 11) == 0) { found = true; break; }
+-                q += strlen(q) + 1;
+-            }
+-            if (!found) {
+-                char *p = envp;
+-                while (*p != '\0')
+-                    p += strlen(p) + 1;
+-                size_t total_used = (p - envp) + 1;
+-                if (total_used + env_len + 1 <= ARGV_MAX) {
+-                    memcpy(p, ld_preload, env_len);
+-                    p[env_len] = '\0';
+-                }
+-            }
+-        }
++        // zero_free.so is not shipped in the pinned guest; do not preload it.
++
+     }
+ 
+     // Native offload: check if this binary should run natively on the host
+--- a/xX_main_Xx.h
++++ b/xX_main_Xx.h
+@@ -325,17 +325,7 @@
+                 }
+             }
+         }
+-        // Node-specific: LD_PRELOAD for zero_free.so
+-        const char *base2 = strrchr(argv[optind], '/');
+-        base2 = base2 ? base2 + 1 : argv[optind];
+-        if (strcmp(base2, "node") == 0) {
+-            static const char *ld_preload = "LD_PRELOAD=/lib/zero_free.so";
+-            size_t plen = strlen(ld_preload) + 1;
+-            if (ep + plen < sizeof(envp_buf) - 2) {
+-                memcpy(&envp_buf[ep], ld_preload, plen);
+-                ep += plen;
+-            }
+-        }
++        // zero_free.so is not shipped in the pinned guest; do not preload it.
+         envp_buf[ep] = '\0';
+         err = do_execve(argv[optind], exec_argc, argv_copy, envp_buf);
+     }

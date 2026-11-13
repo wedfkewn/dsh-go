@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../runtime/runtime_bridge.dart';
 import '../runtime/runtime_state.dart';
+import '../runtime/shellbox/shellbox_runtime_bridge.dart';
 
 /// Multi-step engine actions built on [localRuntimeProvider].
 ///
@@ -15,11 +16,20 @@ abstract final class EngineControl {
   /// An incomplete stop leaves the engine stopping; no new start is requested.
   /// [mode] null keeps the current mode (a restart in safe mode stays in safe mode).
   /// Returns false when the stop did not finish, so no start was requested.
-  static Future<bool> restart(ProviderContainer container, {EngineMode? mode}) => _restart(container, mode: mode);
+  static Future<bool> restart(
+    ProviderContainer container, {
+    EngineMode? mode,
+    String source = 'engine_control.restart',
+  }) =>
+      container.read(runtimeBridgeProvider).lifecycleRequest('restart', source, () => _restart(container, mode: mode));
 
   static Future<bool> _restart(ProviderContainer container, {EngineMode? mode}) async {
     final runtime = container.read(localRuntimeProvider.notifier);
-    final phase = container.read(localRuntimeProvider).status.phase;
+    final bridge = container.read(runtimeBridgeProvider);
+    final phase = bridge is ShellBoxRuntimeBridge
+        ? (await bridge.status()).phase
+        : container.read(localRuntimeProvider).status.phase;
+    if (phase == RuntimePhase.stopBlocked || phase == RuntimePhase.resetting) return false;
     if (phase == RuntimePhase.running || phase == RuntimePhase.starting || phase == RuntimePhase.stopping) {
       if (!await _stopAndWait(container)) return false;
     }
@@ -42,12 +52,16 @@ abstract final class EngineControl {
   }
 
   /// Starts the engine unless it is already starting or running.
-  static Future<void> ensureStarted(ProviderContainer container) async {
-    final phase = container.read(localRuntimeProvider).status.phase;
-    if (phase == RuntimePhase.installed || phase == RuntimePhase.error) {
-      await container.read(localRuntimeProvider.notifier).start();
-    }
-  }
+  static Future<void> ensureStarted(ProviderContainer container, {String source = 'ensureStarted.unknown'}) =>
+      container.read(runtimeBridgeProvider).lifecycleRequest('ensureStarted', source, () async {
+        final bridge = container.read(runtimeBridgeProvider);
+        final phase = bridge is ShellBoxRuntimeBridge
+            ? (await bridge.status()).phase
+            : container.read(localRuntimeProvider).status.phase;
+        if (phase == RuntimePhase.installed || phase == RuntimePhase.stopped || phase == RuntimePhase.error) {
+          await container.read(localRuntimeProvider.notifier).start();
+        }
+      });
 
   /// Whether the launch-time auto start should run. After two failures in a row with
   /// automatic safe mode turned off, the failure card waits for the user instead.
@@ -93,14 +107,24 @@ abstract final class EngineControl {
   }
 
   static Future<bool> _stopAndWait(ProviderContainer container) async {
+    final bridge = container.read(runtimeBridgeProvider);
+    if (bridge is ShellBoxRuntimeBridge) {
+      final phase = (await bridge.status()).phase;
+      if (phase == RuntimePhase.stopBlocked || phase == RuntimePhase.resetting) return false;
+      if (phase == RuntimePhase.running || phase == RuntimePhase.starting || phase == RuntimePhase.stopping) {
+        await bridge.stop();
+      }
+      final stopped = (await bridge.status()).phase;
+      return stopped == RuntimePhase.stopped || stopped == RuntimePhase.installed;
+    }
     bool stoppedNow() {
       final phase = container.read(localRuntimeProvider).status.phase;
-      return !phase.isBusy && phase != RuntimePhase.running;
+      return !phase.isBusy && phase != RuntimePhase.running && phase != RuntimePhase.stopBlocked;
     }
 
     final stopped = Completer<bool>();
     final sub = container.listen<RuntimePhase>(localRuntimeProvider.select((s) => s.status.phase), (_, next) {
-      if (!next.isBusy && next != RuntimePhase.running && !stopped.isCompleted) {
+      if (!next.isBusy && next != RuntimePhase.running && next != RuntimePhase.stopBlocked && !stopped.isCompleted) {
         stopped.complete(true);
       }
     });

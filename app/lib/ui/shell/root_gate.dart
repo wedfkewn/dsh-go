@@ -128,7 +128,7 @@ class _RootGateState extends ConsumerState<RootGate> {
   void _afterRuntime() {
     // Boot DSH in the background while the user deals with the key.
     _autoStartDone = true;
-    unawaited(EngineControl.ensureStarted(_container));
+    unawaited(EngineControl.ensureStarted(_container, source: 'auto_start.launch'));
     final settings = ref.read(settingsProvider);
     final prefs = ref.read(onboardingPrefsProvider);
     _goTo(settings.hasModelAccess || prefs.keySkipped ? null : OnboardingStep.apiKey);
@@ -137,7 +137,7 @@ class _RootGateState extends ConsumerState<RootGate> {
   void _afterKey() {
     if (_beside) return _finishBeside();
     _autoStartDone = true;
-    unawaited(EngineControl.ensureStarted(_container));
+    unawaited(EngineControl.ensureStarted(_container, source: 'auto_start.launch'));
     _goTo(null);
   }
 
@@ -161,7 +161,7 @@ class _RootGateState extends ConsumerState<RootGate> {
     if (_besideEngine) return;
     _besideEngine = true;
     _autoStartDone = true;
-    unawaited(EngineControl.ensureStarted(_container));
+    unawaited(EngineControl.ensureStarted(_container, source: 'auto_start.launch'));
   }
 
   /// 「本机」: unpack in the background, set up meanwhile.

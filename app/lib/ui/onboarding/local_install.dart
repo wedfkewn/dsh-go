@@ -49,7 +49,7 @@ class _LocalInstallPageState extends ConsumerState<LocalInstallPage> {
   Future<void> _done() async {
     final container = ProviderScope.containerOf(context, listen: false);
     final navigator = Navigator.of(context);
-    unawaited(EngineControl.ensureStarted(container));
+    unawaited(EngineControl.ensureStarted(container, source: 'onboarding'));
     if (widget.useWhenDone) container.read(activeHostProvider.notifier).select(HostRef.local);
     if (container.read(settingsProvider).hasModelAccess || container.read(onboardingPrefsProvider).keySkipped) {
       navigator.pop();

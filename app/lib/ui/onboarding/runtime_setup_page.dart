@@ -13,6 +13,7 @@ import '../common/progress_halo.dart';
 import '../engine/diagnostics_export_card.dart';
 import '../engine/engine_status.dart';
 import '../engine/log_view.dart';
+import '../engine/stop_blocked_card.dart';
 import '../shell/adaptive/adaptive_layout.dart' show WindowClass;
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
@@ -112,9 +113,12 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
     return switch (status.phase) {
       RuntimePhase.installing => _SetupView.installing,
       RuntimePhase.installed ||
+      RuntimePhase.stopped ||
       RuntimePhase.starting ||
       RuntimePhase.running ||
-      RuntimePhase.stopping => _SetupView.done,
+      RuntimePhase.stopping ||
+      RuntimePhase.resetting => _SetupView.done,
+      RuntimePhase.stopBlocked => _SetupView.failed,
       RuntimePhase.error => installedCurrent ? _SetupView.done : _SetupView.failed,
       RuntimePhase.notInstalled =>
         launchFailed
@@ -153,6 +157,9 @@ class _RuntimeSetupPageState extends ConsumerState<RuntimeSetupPage> {
   Widget build(BuildContext context) {
     ref.listen(localRuntimeProvider.select((s) => s.progress), (_, next) => _primeNotifications(next));
     final state = ref.watch(localRuntimeProvider);
+    if (isRuntimeStopBlocked(state.status)) {
+      return OnboardingScaffold(leading: widget.leading, children: const [Spacer(), StopBlockedCard(), Spacer()]);
+    }
     final view = _viewFor(
       state,
       launchFailed: ref.watch(runtimeInstallProvider) != null || ref.watch(localInstallUnavailableProvider),

@@ -1,28 +1,178 @@
 #import "ShellBoxPlugin.h"
 #import <CoreFoundation/CoreFoundation.h>
 #include <math.h>
+#include <stdlib.h>
+#include <CommonCrypto/CommonDigest.h>
+#include "tools/fakefs.h"
+#include "ShellBoxKernel.h"
+#include "ShellBoxSession.h"
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
-// All channel state is confined to the platform (main) thread. Never infer an
-// installation from the old directory scaffold or readiness from mount_root.
+// Channel state and history live on main; blocking installation runs on one worker.
 @interface ShellBoxPlugin ()
-@property(nonatomic, copy) NSDictionary *failure;
+- (void)receiveOutput:(NSData *)data stream:(int)stream;
 @end
 
 @implementation ShellBoxPlugin
 
 // Process-lifetime history, shared even if Flutter registers another engine.
-// Only fixed native diagnostic messages enter this buffer today: channel
-// arguments (especially env), NSError descriptions and guest output do not.
-// A future stdio pump MUST redact and frame output before appending it here.
+// Guest lines are assembled and redacted before entering the ring.
 static NSMutableArray<NSDictionary *> *shellBoxEntries;
 static unsigned long long shellBoxSequence;
 static const NSUInteger ShellBoxLogCapacity = 2000;
+// Shared across Flutter engines. Set on main before dispatch, cleared on main
+// after the worker completes. A second install cannot race the activation.
+static BOOL shellBoxInstalling;
+static NSString * const ShellBoxPayloadName =
+    @"rootfs-ubuntu24.04.5-node24.22.3-dsh0.2.2-rc.1-arm64.tar.gz";
+
+// Platform-thread state shared by Flutter engines. Kernel handles are only
+// touched on kernelQueue; an operation retains ownership through a UI timeout.
+static enum sb_phase sessionPhase;
+static NSString *SBPhase(void) { return sessionPhase == SB_IDLE ? nil : [NSString stringWithUTF8String:sb_phase_name(sessionPhase)]; }
+static NSDictionary *lifecycleFailure;
+static dispatch_queue_t kernelQueue;
+static struct guest_service *service;
+static BOOL operationPending, bootFailed, nodeVerified;
+static NSString *endpoint, *launchToken;
+static NSDictionary *lastStart;
+static NSMutableSet<NSString *> *secrets;
+static NSMutableData *pendingOutput[2];
+static BOOL droppingOutput[2], privateOutput[2];
+static unsigned expectedPort;
+static NSUInteger startGeneration;
+static NSString *runtimeInstanceID, *runtimeStartedAt, *requestSource, *transitionSource;
+static NSString *flutterLifecycle = @"unknown";
+
+static ShellBoxPlugin *runtimeOwner;
+static const NSTimeInterval ShellBoxStopSeconds = 5;
+static const NSTimeInterval ShellBoxReadySeconds = 180;
+
+static NSData *ShellBoxEnvironment(NSDictionary *extra) {
+    NSMutableDictionary *env = [@{@"HOME": @"/root", @"PATH": @"/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        @"LANG": @"C.UTF-8", @"TERM": @"dumb"} mutableCopy];
+    [env addEntriesFromDictionary:extra ?: @{}];
+    NSMutableData *packed = [NSMutableData data];
+    for (NSString *key in env) {
+        NSData *entry = [[NSString stringWithFormat:@"%@=%@", key, env[key]] dataUsingEncoding:NSUTF8StringEncoding];
+        [packed appendData:entry]; [packed appendBytes:"\0" length:1];
+    }
+    [packed appendBytes:"\0" length:1];
+    return packed;
+}
+static void ShellBoxOutput(const void *bytes, size_t size, int stream) {
+    @autoreleasepool {
+        NSData *copy = [NSData dataWithBytes:bytes length:size];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [runtimeOwner receiveOutput:copy stream:stream];
+        });
+    }
+}
+
+static NSURL *ShellBoxHome(void) {
+    NSURL *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory
+                                                        inDomains:NSUserDomainMask].firstObject;
+    return [support URLByAppendingPathComponent:@"ShellBox" isDirectory:YES];
+}
+
+static NSDictionary *ShellBoxInstalled(void) {
+    NSURL *active = [ShellBoxHome() URLByAppendingPathComponent:@"active" isDirectory:YES];
+    NSDictionary *marker = [NSDictionary dictionaryWithContentsOfURL:
+        [active URLByAppendingPathComponent:@"installed.plist"]];
+    BOOL directory = NO;
+    if (![marker[@"sha256"] isKindOfClass:NSString.class] ||
+        ![NSFileManager.defaultManager fileExistsAtPath:
+            [active URLByAppendingPathComponent:@"data"].path isDirectory:&directory] || !directory ||
+        ![NSFileManager.defaultManager fileExistsAtPath:
+            [active URLByAppendingPathComponent:@"meta.db"].path]) return nil;
+    return marker;
+}
+
+// Return only fixed error codes. Never expose paths, importer errors or env.
+static NSString *ShellBoxInstallPayload(void) {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSURL *manifestURL = [bundle URLForResource:@"MANIFEST" withExtension:@"json"];
+    NSURL *archiveURL = [bundle URLForResource:ShellBoxPayloadName withExtension:nil];
+    if (!manifestURL || !archiveURL) return @"shellbox_payload_missing";
+    NSData *data = [NSData dataWithContentsOfURL:manifestURL];
+    id manifest = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+    if (![manifest isKindOfClass:NSDictionary.class] || ![manifest[@"schema"] isEqual:@1] ||
+        ![manifest[@"payloadArchives"] isKindOfClass:NSArray.class] ||
+        [manifest[@"payloadArchives"] count] != 1) return @"shellbox_manifest_invalid";
+    id archive = manifest[@"payloadArchives"][0];
+    if (![archive isKindOfClass:NSDictionary.class]) return @"shellbox_manifest_invalid";
+    NSString *expected = archive[@"sha256"];
+    NSNumber *size = archive[@"sizeBytes"];
+    NSCharacterSet *nonHex = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet];
+    if (![expected isKindOfClass:NSString.class] || expected.length != 64 ||
+        [expected rangeOfCharacterFromSet:nonHex].location != NSNotFound ||
+        ![size isKindOfClass:NSNumber.class] ||
+        CFGetTypeID((__bridge CFTypeRef)size) == CFBooleanGetTypeID() ||
+        !isfinite(size.doubleValue) || size.doubleValue <= 0 ||
+        floor(size.doubleValue) != size.doubleValue) return @"shellbox_manifest_invalid";
+    // The manifest's absolute archive path is provenance, never a runtime URL.
+    NSInputStream *input = [NSInputStream inputStreamWithURL:archiveURL];
+    [input open];
+    CC_SHA256_CTX context;
+    CC_SHA256_Init(&context);
+    uint8_t buffer[65536];
+    uint64_t total = 0;
+    NSInteger count;
+    while ((count = [input read:buffer maxLength:sizeof(buffer)]) > 0) {
+        total += (uint64_t)count;
+        CC_SHA256_Update(&context, buffer, (CC_LONG)count);
+    }
+    [input close];
+    if (count < 0) return @"shellbox_payload_read_failed";
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256_Final(digest, &context);
+    NSMutableString *actual = [NSMutableString string];
+    for (NSUInteger i = 0; i < sizeof(digest); i++) [actual appendFormat:@"%02x", digest[i]];
+    if (total != size.unsignedLongLongValue || ![actual isEqualToString:expected])
+        return @"shellbox_payload_integrity_failed";
+    NSDictionary *installed = ShellBoxInstalled();
+    if (installed) return [installed[@"sha256"] isEqual:actual] ? nil : @"shellbox_upgrade_requires_reset";
+    NSFileManager *files = NSFileManager.defaultManager;
+    NSURL *home = ShellBoxHome();
+    NSURL *active = [home URLByAppendingPathComponent:@"active" isDirectory:YES];
+    // An unrecognized installation is user data, never disposable staging.
+    if ([files fileExistsAtPath:active.path]) return @"shellbox_installation_invalid";
+    if (![files createDirectoryAtURL:home withIntermediateDirectories:YES attributes:nil error:nil])
+        return @"shellbox_install_storage_failed";
+    NSURL *stage = [home URLByAppendingPathComponent:
+        [@"prepare-" stringByAppendingString:NSUUID.UUID.UUIDString] isDirectory:YES];
+    struct fakefsify_error importError = {0};
+    BOOL imported = fakefs_import(archiveURL.fileSystemRepresentation,
+                                 stage.fileSystemRepresentation, &importError, (struct progress){0});
+    free(importError.message);
+    NSString *failure = nil;
+    if (!imported) failure = @"shellbox_import_failed";
+    if (!failure && ![@{@"schema": @1, @"sha256": actual, @"sizeBytes": @(total)}
+        writeToURL:[stage URLByAppendingPathComponent:@"installed.plist"] atomically:YES])
+        failure = @"shellbox_install_marker_failed";
+    // Same-volume rename publishes data, metadata and marker together. No active
+    // tree is removed or replaced; failed import/activation leaves it untouched.
+    if (!failure && ![files moveItemAtURL:stage toURL:active error:nil])
+        failure = @"shellbox_install_activation_failed";
+    if (failure && ![files removeItemAtURL:stage error:nil] && [files fileExistsAtPath:stage.path])
+        return @"shellbox_install_cleanup_failed";
+    return failure;
+}
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
     FlutterMethodChannel *channel = [FlutterMethodChannel
         methodChannelWithName:@"dsh/shellbox"
         binaryMessenger:registrar.messenger];
     ShellBoxPlugin *instance = [[ShellBoxPlugin alloc] init];
+    if (!runtimeOwner) {
+        runtimeOwner = instance;
+        kernelQueue = dispatch_queue_create("dsh.shellbox.kernel", DISPATCH_QUEUE_SERIAL);
+        secrets = [NSMutableSet set];
+        pendingOutput[0] = [NSMutableData data]; pendingOutput[1] = [NSMutableData data];
+    }
     [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -37,22 +187,347 @@ static const NSUInteger ShellBoxLogCapacity = 2000;
     }
 }
 
+// Fixed metadata only; never serialize channel arguments or runtime URLs.
+- (void)recordLifecycle:(NSString *)event {
+    [self recordLifecycle:event source:requestSource];
+}
+- (void)recordLifecycle:(NSString *)event source:(NSString *)source {
+    NSDictionary *fields = @{@"event": event, @"timestamp": [NSISO8601DateFormatter.new stringFromDate:NSDate.date], @"appPid": @(getpid()),
+        @"runtimeInstanceId": runtimeInstanceID ?: (id)NSNull.null,
+        @"dshPid": @(dsh_shellbox_command_pid()), @"guestInitPid": @1,
+        @"webPort": @(expectedPort), @"startedAt": runtimeStartedAt ?: (id)NSNull.null,
+        @"flutterLifecycle": flutterLifecycle, @"source": source ?: @"native.internal",
+        @"phase": shellBoxInstalling ? @"installing" :
+            (SBPhase() ?: (lifecycleFailure ? @"error" : (ShellBoxInstalled() ? @"installed" : @"notInstalled")))};
+    NSData *json = [NSJSONSerialization dataWithJSONObject:fields options:NSJSONWritingSortedKeys error:nil];
+    [self recordSystemMessage:[@"shellbox.lifecycle " stringByAppendingString:
+        [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]]];
+}
+- (void)setPhase:(enum sb_phase)phase {
+    sessionPhase = phase;
+    [self recordLifecycle:@"transition" source:transitionSource];
+}
+
 - (FlutterError *)unsupported:(NSString *)code message:(NSString *)message {
-    self.failure = @{@"code": code, @"message": message};
+    lifecycleFailure = @{@"code": code, @"message": message};
     [self recordSystemMessage:message];
+    [self recordLifecycle:code];
     return [FlutterError errorWithCode:code message:message details:nil];
+}
+
+- (NSDictionary *)statusMap {
+    if (sessionPhase == SB_RUNNING && dsh_shellbox_command_status() != -1) {
+        [self stop:^(id reply) { (void)reply; }];
+    }
+    NSMutableDictionary *status = [@{@"phase": shellBoxInstalling ? @"installing" :
+        (SBPhase() ?: (lifecycleFailure ? @"error" : (ShellBoxInstalled() ? @"installed" : @"notInstalled"))),
+        @"abi": @"arm64"} mutableCopy];
+    NSDictionary *installed = ShellBoxInstalled();
+    if (installed) status[@"installedVersion"] = installed[@"sha256"];
+    NSURL *manifestURL = [NSBundle.mainBundle URLForResource:@"MANIFEST" withExtension:@"json"];
+    NSData *manifestData = manifestURL ? [NSData dataWithContentsOfURL:manifestURL] : nil;
+    id manifest = manifestData ? [NSJSONSerialization JSONObjectWithData:manifestData options:0 error:nil] : nil;
+    id archives = [manifest isKindOfClass:NSDictionary.class] ? manifest[@"payloadArchives"] : nil;
+    id archive = [archives isKindOfClass:NSArray.class] && [archives count] == 1 ? archives[0] : nil;
+    id digest = [archive isKindOfClass:NSDictionary.class] ? archive[@"sha256"] : nil;
+    if ([digest isKindOfClass:NSString.class]) status[@"bundledVersion"] = digest;
+    if (lifecycleFailure) status[@"error"] = lifecycleFailure;
+    if ([SBPhase() isEqual:@"running"]) { status[@"baseUrl"] = endpoint; status[@"token"] = launchToken; }
+    if (nodeVerified) status[@"nodeVersion"] = @"24.22.3";
+    return status;
+}
+- (FlutterError *)rejection:(NSString *)code {
+    [self recordLifecycle:code];
+    NSMutableDictionary *status = [[self statusMap] mutableCopy];
+    [status removeObjectForKey:@"token"]; // errors may be written to diagnostics
+    return [FlutterError errorWithCode:code message:code details:status];
+}
+- (void)blocked {
+    [self setPhase:sb_stop_result(false)]; endpoint = nil; launchToken = nil;
+    lifecycleFailure = @{@"code": @"shellbox_stop_blocked", @"message":
+        @"Service completion is unconfirmed. Retry stop or close the app from the app switcher. The guest and resources remain alive."};
+    [self recordSystemMessage:@"StopBlocked: service completion unconfirmed; resources retained. Retry stop or close the app."];
+}
+- (void)receiveOutput:(NSData *)data stream:(int)stream {
+    NSUInteger index = stream == 2 ? 1 : 0;
+    if (!data.length) {
+        if (pendingOutput[index].length || droppingOutput[index]) [self receiveOutput:[NSData dataWithBytes:"\n" length:1] stream:stream];
+        privateOutput[index] = NO;
+        return;
+    }
+    // Keep UTF-8 and secrets intact across arbitrary pipe chunks. Oversized lines
+    // are dropped through newline, never emitted in partially redacted chunks.
+    const uint8_t *bytes = data.bytes;
+    for (NSUInteger i = 0; i < data.length; i++) {
+        if (bytes[i] != '\n') {
+            if (!droppingOutput[index]) [pendingOutput[index] appendBytes:bytes + i length:1];
+            if (pendingOutput[index].length > 65536) {
+                [pendingOutput[index] setLength:0]; droppingOutput[index] = YES;
+            }
+            continue;
+        }
+        NSString *line = droppingOutput[index] ? @"[oversized guest line omitted]" :
+            [[NSString alloc] initWithData:pendingOutput[index] encoding:NSUTF8StringEncoding];
+        [pendingOutput[index] setLength:0]; droppingOutput[index] = NO;
+        if (!line) continue;
+        NSRegularExpression *ansi = [NSRegularExpression regularExpressionWithPattern:@"\\x1b\\[[0-9;?]*[ -/]*[@-~]" options:0 error:nil];
+        line = [ansi stringByReplacingMatchesInString:line options:0 range:NSMakeRange(0, line.length) withTemplate:@""];
+        if ([line containsString:@"-----BEGIN "] && [line containsString:@"PRIVATE KEY-----"]) privateOutput[index] = YES;
+        if (privateOutput[index]) {
+            BOOL end = [line containsString:@"-----END "] && [line containsString:@"PRIVATE KEY-----"];
+            line = @"[REDACTED private key]";
+            if (end) privateOutput[index] = NO;
+        }
+
+        if ([SBPhase() isEqual:@"starting"]) {
+            if ([line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length &&
+                [[line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] isEqual:@"DSH_GO_NODE=v24.22.3"])
+                nodeVerified = YES;
+            NSRegularExpression *urlPattern = [NSRegularExpression regularExpressionWithPattern:
+                @"http://127\\.0\\.0\\.1:[0-9]+[^\\s\"']*[?&#]token=([A-Za-z0-9._~%+-]+)" options:0 error:nil];
+            NSTextCheckingResult *match = [urlPattern firstMatchInString:line options:0 range:NSMakeRange(0, line.length)];
+            if (match) {
+                NSURLComponents *url = [NSURLComponents componentsWithString:[line substringWithRange:match.range]];
+                if ([url.host isEqual:@"127.0.0.1"] && url.port.unsignedIntValue == expectedPort) {
+                    endpoint = [NSString stringWithFormat:@"http://127.0.0.1:%@", url.port];
+                    NSString *observed = [line substringWithRange:[match rangeAtIndex:1]];
+                    launchToken = observed.stringByRemovingPercentEncoding ?: observed;
+                    [secrets addObject:launchToken];
+                }
+            }
+        }
+        for (NSString *secret in secrets) if (secret.length) line = [line stringByReplacingOccurrencesOfString:secret withString:@"[REDACTED]"];
+        for (NSString *pattern in @[@"(?i)(?:bearer|basic)\\s+[^\\s]+", @"(?i)[A-Za-z0-9_.-]*(?:token|api[_-]?key|secret|password|cookie|authorization|credential|passphrase)[A-Za-z0-9_.-]*[\"']?\\s*[:=].*", @"(?:sk-|glpat-|gh[pousr]_|github_pat_|npm_|hf_|xox[baprs]-)[A-Za-z0-9_-]+", @"eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+", @"[a-z][a-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@"] ) {
+            NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:nil];
+            line = [regex stringByReplacingMatchesInString:line options:0 range:NSMakeRange(0, line.length) withTemplate:@"[REDACTED]"];
+        }
+        if (shellBoxEntries == nil) shellBoxEntries = [NSMutableArray array];
+        [shellBoxEntries addObject:@{@"seq": @(++shellBoxSequence), @"line": line,
+            @"stream": stream == 2 ? @"stderr" : @"stdout"}];
+        if (shellBoxEntries.count > ShellBoxLogCapacity) [shellBoxEntries removeObjectAtIndex:0];
+    }
+}
+- (void)start:(id)arguments result:(FlutterResult)result {
+    [self recordLifecycle:@"start.request"];
+
+    if (bootFailed) { result([self rejection:@"shellbox_boot_failed"]); return; }
+    if (!sb_can_initialize(sessionPhase, operationPending) || service) {
+        result([self rejection:[SBPhase() isEqual:@"stopBlocked"] ? @"shellbox_stop_blocked" : @"shellbox_already_active"]); return;
+    }
+    if (!ShellBoxInstalled()) { result([self rejection:@"shellbox_not_installed"]); return; }
+    if (arguments && arguments != NSNull.null && ![arguments isKindOfClass:NSDictionary.class]) {
+        result([self rejection:@"shellbox_invalid_arguments"]); return;
+    }
+    NSDictionary *args = [arguments isKindOfClass:NSDictionary.class] ? arguments : @{};
+    id extra = args[@"env"] ?: @{};
+    if (![extra isKindOfClass:NSDictionary.class]) { result([self rejection:@"shellbox_invalid_arguments"]); return; }
+    NSRegularExpression *keyPattern = [NSRegularExpression regularExpressionWithPattern:@"^[A-Za-z_][A-Za-z0-9_]*$" options:0 error:nil];
+    for (id key in extra) {
+        id value = extra[key];
+        if (![key isKindOfClass:NSString.class] || ![value isKindOfClass:NSString.class] ||
+            ![keyPattern numberOfMatchesInString:key options:0 range:NSMakeRange(0, [key length])] ||
+            [value rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location != NSNotFound ||
+            [@[@"HOME", @"PATH", @"LD_PRELOAD", @"NODE_OPTIONS"] containsObject:key]) {
+            result([self rejection:@"shellbox_invalid_arguments"]); return;
+        }
+    }
+    for (NSString *option in @[@"phoneStorage", @"visualReplies"]) {
+        id value = args[option];
+        if (value && (![value isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID())) {
+            result([self rejection:@"shellbox_invalid_arguments"]); return;
+        }
+    }
+    if ([args[@"phoneStorage"] boolValue] || ([args[@"mode"] isKindOfClass:NSString.class] && ![args[@"mode"] isEqual:@"normal"]) ||
+        (args[@"visualReplies"] && ![args[@"visualReplies"] boolValue])) {
+        result([self rejection:@"shellbox_start_options_unsupported"]); return;
+    }
+    if (!runtimeInstanceID) runtimeInstanceID = NSUUID.UUID.UUIDString;
+    runtimeStartedAt = [NSISO8601DateFormatter.new stringFromDate:NSDate.date];
+    NSUInteger generation = ++startGeneration;
+    NSString *caller = requestSource ?: @"runtime.direct";
+    transitionSource = caller;
+    lastStart = args; // in memory only, needed for same-session restart
+    [secrets removeAllObjects];
+    for (NSString *value in [extra allValues]) {
+        for (NSString *part in [value componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet])
+            if (part.length) [secrets addObject:part];
+    }
+    expectedPort = 0;
+    [self setPhase:SB_STARTING]; lifecycleFailure = nil; operationPending = YES;
+    nodeVerified = NO; endpoint = nil; launchToken = nil;
+    NSData *environment = ShellBoxEnvironment(extra);
+    NSString *root = [[ShellBoxHome() URLByAppendingPathComponent:@"active/data"] path];
+    // Ask the OS for an available loopback port; readiness uses the observed DSH URL.
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in address = {.sin_family = AF_INET, .sin_addr.s_addr = htonl(INADDR_LOOPBACK)};
+    socklen_t addressSize = sizeof(address);
+    if (sock < 0 || bind(sock, (struct sockaddr *)&address, addressSize) || getsockname(sock, (struct sockaddr *)&address, &addressSize)) {
+        if (sock >= 0) close(sock); [self setPhase:SB_ERROR]; operationPending = NO;
+        result([self unsupported:@"shellbox_port_failed" message:@"Could not select a loopback port."]); return;
+    }
+    unsigned port = ntohs(address.sin_port); expectedPort = port; close(sock);
+    [self recordLifecycle:@"start.port_selected"];
+    NSString *command = [NSString stringWithFormat:
+        @"cd /root && /opt/node/bin/node -e 'if(process.version!==\"v24.22.3\")process.exit(70);const fs=require(\"fs\");for(const [p,v] of [[\"/etc/resolv.conf\",\"nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n\"],[\"/etc/hosts\",\"127.0.0.1 localhost\\n::1 localhost\\n\"]]){if(!fs.existsSync(p)||fs.statSync(p).size===0)fs.writeFileSync(p,v)}fs.mkdirSync(\"/etc/ssl/certs\",{recursive:true});const ca=\"/etc/ssl/certs/ca-certificates.crt\";if(!fs.existsSync(ca)||fs.statSync(ca).size===0)fs.writeFileSync(ca,require(\"tls\").rootCertificates.join(\"\\n\")+\"\\n\");console.log(\"DSH_GO_NETWORK_CONFIG=ready\");console.log(\"DSH_GO_NODE=\"+process.version)' && exec /usr/local/bin/dsh web --host 127.0.0.1 --port %u --no-open", port];
+    dispatch_async(kernelQueue, ^{
+        int err = dsh_shellbox_boot(root.fileSystemRepresentation);
+        BOOL failedBoot = err != 0;
+        if (!err) err = dsh_shellbox_launch(command.UTF8String, environment.bytes, ShellBoxOutput, &service);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            operationPending = NO;
+            [self recordLifecycle:@"start.launch_completed" source:caller];
+            if (err) {
+                bootFailed = failedBoot; [self setPhase:SB_ERROR];
+                result([self unsupported:failedBoot ? @"shellbox_boot_failed" : @"shellbox_launch_failed" message:@"Guest boot or service launch failed. No readiness claimed."]);
+            } else [self awaitReady:(NSProcessInfo.processInfo.systemUptime + ShellBoxReadySeconds) generation:generation source:caller result:result];
+        });
+    });
+}
+- (void)awaitReady:(NSTimeInterval)deadline generation:(NSUInteger)generation source:(NSString *)caller result:(FlutterResult)result {
+    if (generation != startGeneration || ![SBPhase() isEqual:@"starting"]) { [self recordLifecycle:@"start.interrupted" source:caller]; result([self rejection:@"shellbox_start_interrupted"]); return; }
+    if (NSProcessInfo.processInfo.systemUptime >= deadline) {
+        [self stop:^(id reply) {
+            result(reply ?: [self unsupported:@"shellbox_readiness_failed" message:@"Node version and DSH loopback readiness were not confirmed."]);
+        }]; return;
+    }
+    if (nodeVerified && endpoint && launchToken) {
+        // The pinned DSH index returns 401 without a launch-token exchange.
+        // Ephemeral cookies permit its authenticated redirect, without disk state.
+        NSURLComponents *probeURL = [NSURLComponents componentsWithString:endpoint];
+        probeURL.path = @"/";
+        probeURL.queryItems = @[[NSURLQueryItem queryItemWithName:@"token" value:launchToken]];
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:probeURL.URL];
+        request.timeoutInterval = 2;
+        NSURLSessionConfiguration *configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration;
+        NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+        [[session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+            [session finishTasksAndInvalidate];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSInteger code = [(NSHTTPURLResponse *)response statusCode];
+                if (generation == startGeneration && [SBPhase() isEqual:@"starting"] && !error && code >= 200 && code < 400 && dsh_shellbox_command_status() == -1) {
+                    [self setPhase:SB_RUNNING]; lifecycleFailure = nil; result(nil);
+                } else [self scheduleReady:deadline generation:generation source:caller result:result];
+            });
+        }] resume];
+    } else [self scheduleReady:deadline generation:generation source:caller result:result];
+}
+- (void)scheduleReady:(NSTimeInterval)deadline generation:(NSUInteger)generation source:(NSString *)caller result:(FlutterResult)result {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ [self awaitReady:deadline generation:generation source:caller result:result]; });
+}
+- (void)stop:(FlutterResult)result {
+    [self recordLifecycle:@"stop.request"];
+    if (operationPending || shellBoxInstalling) { result([self rejection:sessionPhase == SB_STOP_BLOCKED ? @"shellbox_stop_blocked" : @"shellbox_busy"]); return; }
+    if ([SBPhase() isEqual:@"stopping"]) { result([self rejection:@"shellbox_busy"]); return; }
+    if (!sb_can_stop(sessionPhase, operationPending)) {
+        if (sessionPhase == SB_RESETTING) result([self rejection:@"shellbox_busy"]);
+        else result(nil);
+        return;
+    }
+    ++startGeneration;
+    transitionSource = requestSource ?: @"native.stop";
+    [self setPhase:SB_STOPPING]; endpoint = nil; launchToken = nil; operationPending = YES;
+    NSTimeInterval deadline = (NSProcessInfo.processInfo.systemUptime + ShellBoxStopSeconds);
+    __block BOOL replied = NO;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(ShellBoxStopSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!replied) { replied = YES; [self blocked]; result([self rejection:@"shellbox_stop_blocked"]); }
+    });
+    dispatch_async(kernelQueue, ^{
+        int err = dsh_shellbox_request_stop(service);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (err) {
+                operationPending = NO;
+                if (!replied) { replied = YES; [self blocked]; result([self rejection:@"shellbox_stop_request_failed"]); }
+                return;
+            }
+            [self pollStop:deadline completion:^(id reply) {
+                if (!replied) { replied = YES; result(reply); }
+            }];
+        });
+    });
+}
+- (void)pollStop:(NSTimeInterval)deadline completion:(FlutterResult)completion {
+    operationPending = YES;
+    dispatch_async(kernelQueue, ^{
+        int err = dsh_shellbox_finish_stop(service);
+        if (!err) service = NULL;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!err) { operationPending = NO; [self setPhase:sb_stop_result(true)]; lifecycleFailure = nil; completion(nil); }
+            else if (err != EBUSY || NSProcessInfo.processInfo.systemUptime >= deadline) {
+                operationPending = NO; [self blocked]; completion([self rejection:@"shellbox_stop_blocked"]);
+            } else dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                [self pollStop:deadline completion:completion];
+            });
+        });
+    });
+}
+- (void)reset:(id)arguments result:(FlutterResult)result {
+    if (!sb_can_initialize(sessionPhase, operationPending) || service) {
+        result([self rejection:[SBPhase() isEqual:@"stopBlocked"] ? @"shellbox_stop_blocked" : @"shellbox_reset_active"]); return;
+    }
+    if (bootFailed || !ShellBoxInstalled()) { result([self rejection:@"shellbox_reset_unavailable"]); return; }
+    id keep = [arguments isKindOfClass:NSDictionary.class] ? arguments[@"keep"] : nil;
+    if (![keep isKindOfClass:NSArray.class]) { result([self rejection:@"shellbox_invalid_arguments"]); return; }
+    for (id group in keep) if (![@[@"uiAndSkills", @"pluginsAndSettings"] containsObject:group]) {
+        result([self rejection:@"shellbox_invalid_arguments"]); return;
+    }
+    // Traverse only /root, using lstat/scandir without following symlinks. Guest
+    // unlink/rmdir update fakefs metadata. Keep ancestors are traversed, roots
+    // retained in place. A failure can leave a partially cleared data tree.
+    NSString *command = [NSString stringWithUTF8String:sb_reset_command(
+        [keep containsObject:@"uiAndSkills"], [keep containsObject:@"pluginsAndSettings"])];
+    // GNU find is present in the pinned payload; -delete reports partial failure.
+    lastStart = nil;
+    NSData *environment = ShellBoxEnvironment(@{});
+    NSString *root = [[ShellBoxHome() URLByAppendingPathComponent:@"active/data"] path];
+    if (!runtimeInstanceID) runtimeInstanceID = NSUUID.UUID.UUIDString;
+    transitionSource = @"runtime.reset";
+    operationPending = YES; [self setPhase:SB_RESETTING];
+    dispatch_async(kernelQueue, ^{
+        int err = dsh_shellbox_boot(root.fileSystemRepresentation);
+        if (!err) err = dsh_shellbox_launch(command.UTF8String, environment.bytes, ShellBoxOutput, &service);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            operationPending = NO;
+            if (err) { [self setPhase:SB_ERROR]; result([self unsupported:@"shellbox_reset_failed" message:@"Data reset failed; data may be partially cleared."]); }
+            else [self awaitReset:(NSProcessInfo.processInfo.systemUptime + ShellBoxReadySeconds) result:result];
+        });
+    });
+}
+- (void)awaitReset:(NSTimeInterval)deadline result:(FlutterResult)result {
+    if (dsh_shellbox_command_status() != -1) {
+        int status = dsh_shellbox_command_status();
+        [self setPhase:SB_RUNNING]; // internal cleanup path owns the same service handle
+        [self stop:^(id reply) {
+            if (reply) result(reply);
+            else if (status != 0) { [self setPhase:SB_ERROR]; result([self unsupported:@"shellbox_reset_failed" message:@"Data reset failed; data may be partially cleared."]); }
+            else { [self setPhase:sb_stop_result(true)]; result(nil); }
+        }];
+    } else if (NSProcessInfo.processInfo.systemUptime >= deadline) {
+        [self setPhase:SB_RUNNING];
+        [self stop:^(id reply) { result(reply ?: [self unsupported:@"shellbox_reset_failed" message:@"Data reset timed out; data may be partially cleared."]); }];
+    } else dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ [self awaitReset:deadline result:result]; });
 }
 
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)result {
     NSAssert(NSThread.isMainThread, @"ShellBox channel requires the platform thread");
-    if ([call.method isEqualToString:@"status"]) {
-        // There is no iOS payload installer or committed installation marker.
-        // Failed attempts are errors, not an installed/running runtime. Do not
-        // publish Node/DSH versions merely copied from the Android manifest.
-        NSMutableDictionary *status = [@{@"phase": self.failure ? @"error" : @"notInstalled",
-                                         @"abi": @"arm64"} mutableCopy];
-        if (self.failure) status[@"error"] = self.failure;
-        result(status);
+    NSDictionary *metadata = [call.arguments isKindOfClass:NSDictionary.class] ? call.arguments : @{};
+    if ([@[@"start", @"stop", @"restart", @"lifecycleRequest"] containsObject:call.method]) {
+        NSString *source = metadata[@"source"];
+        NSRegularExpression *tag = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z0-9_.]{1,64}$" options:0 error:nil];
+        requestSource = [source isKindOfClass:NSString.class] &&
+            [tag numberOfMatchesInString:source options:0 range:NSMakeRange(0, source.length)] ? source : @"runtime.direct";
+    }
+    if ([call.method isEqualToString:@"lifecycleRequest"]) {
+        NSString *action = metadata[@"action"];
+        [self recordLifecycle:[@[@"restart", @"ensureStarted"] containsObject:action] ?
+            [action stringByAppendingString:@".request"] : @"control.request"]; result(nil);
+    } else if ([call.method isEqualToString:@"appLifecycle"]) {
+        NSString *event = metadata[@"event"];
+        if ([@[@"paused", @"resumed", @"inactive", @"hidden", @"detached"] containsObject:event]) {
+            flutterLifecycle = event; [self recordLifecycle:@"flutter.lifecycle"];
+        }
+        result([self statusMap]);
+    } else if ([call.method isEqualToString:@"status"]) {
+        result([self statusMap]);
     } else if ([call.method isEqualToString:@"logs"] ||
                [call.method isEqualToString:@"logSnapshot"]) {
         BOOL snapshot = [call.method isEqualToString:@"logSnapshot"];
@@ -82,28 +557,36 @@ static const NSUInteger ShellBoxLogCapacity = 2000;
             result(tail);
         }
     } else if ([call.method isEqualToString:@"start"]) {
-        // Do not call become_first_process on a dispatch worker. At the pinned
-        // upstream revision PID 1 exit calls halt_system -> _exit(0), killing
-        // Runner; returning from exit_hook does not prevent that. Boot needs
-        // an embedding shutdown API as well as a prepared, verified payload.
-        result([self unsupported:@"shellbox_start_rootfs_unimplemented"
-            message:@"No iOS rootfs payload installer or safe embedded kernel lifecycle is implemented."]);
+        [runtimeOwner start:call.arguments result:result];
     } else if ([call.method isEqualToString:@"install"]) {
-        // Neither null nor dropKept authorizes deleting user data before a
-        // payload exists. Android assets are not packaged in the iOS bundle.
-        result([self unsupported:@"shellbox_install_unimplemented"
-            message:@"iOS rootfs payload delivery, verification and fakefs preparation are not implemented; retained data was not changed."]);
-    } else if ([call.method isEqualToString:@"reset"]) {
-        // keep refers to guest paths with fakefs metadata, not host directory
-        // copies. Refuse before changing anything, including for keep: [].
-        result([self unsupported:@"shellbox_reset_unimplemented"
-            message:@"Guest reset and preservation of kept fakefs data are not implemented; no data was changed."]);
+        if (!sb_can_initialize(sessionPhase, operationPending) || service) {
+            result([self rejection:@"shellbox_busy"]); return;
+        }
+        transitionSource = @"runtime.install";
+        shellBoxInstalling = YES; operationPending = YES;
+        [self recordLifecycle:@"install.request"];
+        [self recordLifecycle:@"transition"];
+        lifecycleFailure = nil;
+        [self recordSystemMessage:@"Verifying bundled payload and preparing guest filesystem."];
+        dispatch_async(kernelQueue, ^{
+            NSString *code = ShellBoxInstallPayload();
+            dispatch_async(dispatch_get_main_queue(), ^{
+                shellBoxInstalling = NO; operationPending = NO;
+                if (code) result([self unsupported:code message:@"Guest installation failed; prior installation was retained."]);
+                else { lifecycleFailure = nil; [self setPhase:SB_INSTALLED]; result(nil); }
+            });
+        });
     } else if ([call.method isEqualToString:@"stop"]) {
-        result([self unsupported:@"shellbox_stop_unimplemented"
-            message:@"ShellBox guest shutdown, thread joining and kernel teardown are not implemented."]);
+        [runtimeOwner stop:result];
     } else if ([call.method isEqualToString:@"restart"]) {
-        result([self unsupported:@"shellbox_restart_unimplemented"
-            message:@"ShellBox shutdown and subsequent boot are not implemented."]);
+        [self recordLifecycle:@"restart.request"];
+        if ([SBPhase() isEqual:@"stopBlocked"]) { result([self rejection:@"shellbox_stop_blocked"]); return; }
+        [runtimeOwner stop:^(id reply) {
+            if (reply) result(reply);
+            else [runtimeOwner start:lastStart result:result];
+        }];
+    } else if ([call.method isEqualToString:@"reset"]) {
+        [runtimeOwner reset:call.arguments result:result];
     } else {
         result(FlutterMethodNotImplemented);
     }

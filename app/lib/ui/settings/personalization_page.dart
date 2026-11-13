@@ -50,7 +50,7 @@ class PersonalizationPage extends ConsumerWidget {
           persist: false,
           action: SnackBarAction(
             label: context.l10n.hubSettingsRestartNow,
-            onPressed: () => unawaited(EngineControl.restart(container)),
+            onPressed: () => unawaited(EngineControl.restart(container, source: 'personalization')),
           ),
         ),
       );

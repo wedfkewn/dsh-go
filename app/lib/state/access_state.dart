@@ -550,7 +550,7 @@ class AccessSetupController extends Notifier<AccessSetup> {
     }
     final phase = ref.read(localRuntimeProvider).status.phase;
     if (restart && !restarting && (phase == RuntimePhase.running || phase == RuntimePhase.starting)) {
-      unawaited(EngineControl.restart(ref.container));
+      unawaited(EngineControl.restart(ref.container, source: 'access_apply'));
     }
     if (features.contains(AccessFeature.pet)) {
       // The pet itself, or the floating window has nothing to show (a light

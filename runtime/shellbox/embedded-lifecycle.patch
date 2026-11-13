@@ -1,0 +1,766 @@
+--- a/fs/real.c
++++ b/fs/real.c
+@@ -24,6 +24,7 @@
+ #include "fs/fake.h"
+ #include "fs/tty.h"
+ #include "util/fchdir.h"
++#include "util/guest_threads.h"
+ 
+ // Both host calls answer -1 with errno set, and -1 is the guest's EPERM, so
+ // returning them raw told every caller "operation not permitted" whatever had
+@@ -202,6 +203,8 @@
+ ssize_t realfs_read(struct fd *fd, void *buf, size_t bufsize) {
+     ssize_t res;
+     do {
++        if (guest_threads_stopping())
++            return _EINTR;
+         res = read(fd->real_fd, buf, bufsize);
+     } while (res < 0 && errno == EINTR);
+     if (res < 0)
+@@ -212,6 +215,8 @@
+ ssize_t realfs_write(struct fd *fd, const void *buf, size_t bufsize) {
+     ssize_t res;
+     do {
++        if (guest_threads_stopping())
++            return _EINTR;
+         res = write(fd->real_fd, buf, bufsize);
+     } while (res < 0 && errno == EINTR);
+     if (res < 0)
+@@ -224,6 +229,8 @@
+ ssize_t realfs_pread(struct fd *fd, void *buf, size_t bufsize, off_t off) {
+     ssize_t res;
+     do {
++        if (guest_threads_stopping())
++            return _EINTR;
+         res = pread(fd->real_fd, buf, bufsize, off);
+     } while (res < 0 && errno == EINTR);
+     if (res < 0)
+@@ -234,6 +241,8 @@
+ ssize_t realfs_pwrite(struct fd *fd, const void *buf, size_t bufsize, off_t off) {
+     ssize_t res;
+     do {
++        if (guest_threads_stopping())
++            return _EINTR;
+         res = pwrite(fd->real_fd, buf, bufsize, off);
+     } while (res < 0 && errno == EINTR);
+     if (res < 0)
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -42,12 +42,19 @@
+ 
+ void (*exit_hook)(struct task *task, int code) = NULL;
+ 
++void (*embedded_init_exit_notify)(int status);
++
+ static struct task *find_new_parent(struct task *task) {
+     struct task *new_parent;
+     list_for_each_entry(&task->group->threads, new_parent, group_links) {
+         if (!new_parent->exiting)
+             return new_parent;
+     }
++    /* Embedded init remains allocated until the supervisor reaps it. Once
++     * it is marked exiting/zombie pid_get_task(1) deliberately hides it, but
++     * surviving children must still have an owner during the drain. */
++    if (embedded_init_exit_notify != NULL)
++        return pid_get_task_zombie(1);
+     return pid_get_task(1);
+ }
+ 
+@@ -156,13 +163,16 @@
+     // reparent children
+     struct task *new_parent = find_new_parent(current);
+     struct task *child, *tmp;
+-    list_for_each_entry_safe(&current->children, child, tmp, siblings) {
+-        child->parent = new_parent;
+-        list_remove(&child->siblings);
+-        list_add(&new_parent->children, &child->siblings);
++    if (new_parent != current) {
++        list_for_each_entry_safe(&current->children, child, tmp, siblings) {
++            child->parent = new_parent;
++            list_remove(&child->siblings);
++            list_add(&new_parent->children, &child->siblings);
++        }
+     }
+ 
+     bool auto_reap = false;
++    bool embedded_init_exit = false;
+     if (exit_tgroup(current)) {
+         // If already marked zombie by do_exit_group force path, skip
+         if (leader->zombie)
+@@ -170,7 +180,7 @@
+ 
+         // notify parent that we died
+         struct task *parent = leader->parent;
+-        if (parent == NULL && current->pid != 1) {
++        if (parent == NULL && leader->pid != 1) {
+             // Non-init process with no parent - try to find one
+             // This can happen during reparenting or if parent exited first
+             parent = pid_get_task(1); // Reparent to init
+@@ -178,7 +188,12 @@
+                 leader->parent = parent;
+         }
+ 
+-        if (parent == NULL) {
++        if (parent == NULL && leader->pid == 1 && embedded_init_exit_notify != NULL) {
++            /* Keep init's zombie/group as the parent of surviving children.
++             * The supervisor must drain and reap it after joining workers. */
++            embedded_init_exit = true;
++            leader->zombie = true;
++        } else if (parent == NULL) {
+             // init died, so the guest is over and this host process goes with
+             // it. The hook runs first: halt_system() does not return, and its
+             // `_exit(0)` is where the guest's status was being thrown away —
+@@ -259,7 +274,7 @@
+                 send_signal(parent, leader->exit_signal, info);
+         }
+ 
+-        if (exit_hook != NULL)
++        if (!embedded_init_exit && exit_hook != NULL)
+             exit_hook(current, status);
+     skip_zombie_notify: ;
+     }
+@@ -296,6 +311,8 @@
+     }
+     unlock(&pids_lock);
+ 
++    if (embedded_init_exit)
++        embedded_init_exit_notify(status);
+     pthread_exit(NULL);
+ }
+ 
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -205,6 +205,26 @@
+     return err;
+ }
+ 
++/* copy_task succeeded but no host thread was created. No worker can touch
++ * these resources; undo group membership before releasing the references. */
++static void discard_unstarted_task(struct task *task, dword_t flags) {
++    lock(&pids_lock);
++    lock(&task->group->lock);
++    list_remove(&task->group_links);
++    unlock(&task->group->lock);
++    if (!(flags & CLONE_THREAD_))
++        tgroup_free(task->group);
++    task->group = NULL;
++    unlock(&pids_lock);
++    sighand_release(task->sighand);
++    fs_info_release(task->fs);
++    fdtable_release(task->files);
++    mm_release(task->mm);
++    lock(&pids_lock);
++    task_destroy(task);
++    unlock(&pids_lock);
++}
++
+ dword_t sys_clone(dword_t flags, addr_t stack, addr_t ptid, addr_t tls, addr_t ctid) {
+     STRACE("clone(0x%x, 0x%x, 0x%x, 0x%x, 0x%x)", flags, stack, ptid, tls, ctid);
+     if (flags & ~CSIGNAL_ & ~IMPLEMENTED_FLAGS) {
+@@ -258,12 +278,23 @@
+     // task might be destroyed by the time we finish, so save the pid
+     pid_t pid = task->pid;
+ 
++    err = task_start(task);
++    if (err != 0) {
++        if (flags & CLONE_VFORK_) {
++            task->vfork = NULL;
++            cond_destroy(&vfork.cond);
++        }
++        discard_unstarted_task(task, flags);
++        if (err == ECANCELED)
++            return _EINTR;
++        errno = err;
++        return errno_map();
++    }
++
+     if (current->ptrace.traced) {
+         current->ptrace.trap_event = PTRACE_EVENT_FORK_;
+         send_signal(current, SIGTRAP_, SIGINFO_NIL);
+     }
+-
+-    task_start(task);
+ 
+     if (flags & CLONE_VFORK_) {
+         lock(&vfork.lock);
+--- a/kernel/init.c
++++ b/kernel/init.c
+@@ -21,15 +21,35 @@
+     return 0;
+ }
+ 
+-static void establish_signal_handlers(void) {
++struct boot_signal_handlers {
++    struct sigaction usr1, pipe;
++};
++
++static int restore_signal_handlers(const struct boot_signal_handlers *saved) {
++    int err = 0;
++    if (sigaction(SIGPIPE, &saved->pipe, NULL) < 0)
++        err = errno_map();
++    if (sigaction(SIGUSR1, &saved->usr1, NULL) < 0 && err == 0)
++        err = errno_map();
++    return err;
++}
++
++static int establish_signal_handlers(struct boot_signal_handlers *saved) {
+     extern void sigusr1_handler(int sig);
+-    struct sigaction sigact;
+-    sigact.sa_handler = sigusr1_handler;
+-    sigact.sa_flags = 0;
++    struct sigaction sigact = {.sa_handler = sigusr1_handler};
+     sigemptyset(&sigact.sa_mask);
+     sigaddset(&sigact.sa_mask, SIGUSR1);
+-    sigaction(SIGUSR1, &sigact, NULL);
+-    signal(SIGPIPE, SIG_IGN);
++    if (sigaction(SIGUSR1, &sigact, &saved->usr1) < 0)
++        return errno_map();
++    sigact.sa_handler = SIG_IGN;
++    sigemptyset(&sigact.sa_mask);
++    if (sigaction(SIGPIPE, &sigact, &saved->pipe) < 0) {
++        int err = errno_map();
++        if (sigaction(SIGUSR1, &saved->usr1, NULL) < 0)
++            return errno_map();
++        return err;
++    }
++    return 0;
+ }
+ 
+ // copied from include/asm-generic/resource.h in the kernel
+@@ -159,11 +179,16 @@
+ 
+ int become_first_process(void) {
+     // now seems like a nice time
+-    establish_signal_handlers();
++    struct boot_signal_handlers saved;
++    int err = establish_signal_handlers(&saved);
++    if (err < 0)
++        return err;
+ 
+     struct task *task = construct_task(NULL);
+-    if (IS_ERR(task))
+-        return PTR_ERR(task);
++    if (IS_ERR(task)) {
++        int restore_err = restore_signal_handlers(&saved);
++        return restore_err < 0 ? restore_err : PTR_ERR(task);
++    }
+ 
+     current = task;
+     return 0;
+@@ -267,3 +292,17 @@
+     }
+     return 0;
+ }
++
++_Noreturn void run_first_process(const char *file, size_t argc,
++        const char *argv, const char *envp, void (*report_error)(int)) {
++    int err = do_execve(file, argc, argv, envp);
++    if (err < 0) {
++        report_error(err);
++        /* do_exit releases per-task resources before the unlocked supervisor
++         * notification. Init zombie reaping and mount draining remain the
++         * supervisor's responsibility. */
++        do_exit(127 << 8);
++    }
++    task_run_current();
++    __builtin_unreachable();
++}
+--- a/kernel/init.h
++++ b/kernel/init.h
+@@ -8,6 +8,12 @@
+ void set_console_device(int major, int minor);
+ int become_first_process(void);
+ int become_new_init_child(void);
++/* First boot worker only, after become_first_process and stdio setup.
++ * Requires embedded_init_exit_notify and a registered host worker. report_error
++ * records the raw negative exec errno; the caller must still await completion.
++ * Failure tears down through do_exit, never returns a half-constructed task. */
++_Noreturn void run_first_process(const char *file, size_t argc,
++        const char *argv, const char *envp, void (*report_error)(int));
+ int create_stdio(const char *file, int major, int minor);
+ int create_piped_stdio(void);
+ 
+--- a/kernel/task.c
++++ b/kernel/task.c
+@@ -7,6 +7,7 @@
+ #include "kernel/task.h"
+ #include "kernel/memory.h"
+ #include "emu/tlb.h"
++#include "util/guest_threads.h"
+ 
+ __thread struct task *current;
+ 
+@@ -123,44 +124,12 @@
+     return task;
+ }
+ 
+-// Deferred-free list for task structs.
+-// When a task is destroyed, its struct is not immediately freed — instead it's
+-// placed on this list. The NEXT call to task_destroy will free previously
+-// deferred structs. This gives leaked/exiting pthreads time to finish accessing
+-// `current` before the memory is recycled by malloc, preventing use-after-free
+-// heap corruption.
+-#define DEFERRED_FREE_MAX 64
+-static struct task *deferred_free_list[DEFERRED_FREE_MAX];
+-static int deferred_free_count = 0;
+-// Must be called with pids_lock held (task_destroy already requires this).
+-static void flush_deferred_frees(void) {
+-    for (int i = 0; i < deferred_free_count; i++) {
+-        free(deferred_free_list[i]);
+-        deferred_free_list[i] = NULL;
+-    }
+-    deferred_free_count = 0;
+-}
+-
+ void task_destroy(struct task *task) {
+     syscall_refs_free(task);
+     list_remove(&task->siblings);
+     pid_get(task->pid)->task = NULL;
+ 
+-    // Flush old deferred frees first — they've had time to quiesce.
+-    flush_deferred_frees();
+-
+-    // Zero the struct to poison stale `current` references, then defer the
+-    // actual free. This way if a leaked pthread is still running, it will
+-    // hit zeroed fields (NULL group, NULL mem) and crash cleanly rather than
+-    // silently corrupting a newly-allocated task at the same address.
+-    memset(task, 0, sizeof(struct task));
+-
+-    if (deferred_free_count < DEFERRED_FREE_MAX) {
+-        deferred_free_list[deferred_free_count++] = task;
+-    } else {
+-        // Overflow — free immediately (rare, only with 64+ concurrent exits)
+-        free(task);
+-    }
++    guest_thread_retire(task);
+ }
+ 
+ static void task_run_tlb_cleanup(void *arg) {
+@@ -246,15 +215,11 @@
+     die("task_thread returned"); // above function call should never return
+ }
+ 
+-static pthread_attr_t task_thread_attr;
+-__attribute__((constructor)) static void create_attr(void) {
+-    pthread_attr_init(&task_thread_attr);
+-    pthread_attr_setdetachstate(&task_thread_attr, PTHREAD_CREATE_DETACHED);
+-}
+-
+-void task_start(struct task *task) {
+-    if (pthread_create(&task->thread, &task_thread_attr, task_thread, task) < 0)
+-        die("could not create thread");
++int task_start(struct task *task) {
++    int err = guest_threads_reap();
++    if (err != 0)
++        return err;
++    return guest_thread_create(&task->thread, task_thread, task, task);
+ }
+ 
+ int_t sys_sched_yield(void) {
+--- a/kernel/task.h
++++ b/kernel/task.h
+@@ -270,10 +270,15 @@
+ #define MAX_PID (1 << 15) // oughta be enough
+ 
+ // TODO document
+-void task_start(struct task *task);
++/* Returns a host pthread errno; the caller still owns task on failure. */
++int task_start(struct task *task);
+ void task_run_current(void);
+ 
+ extern void (*exit_hook)(struct task *task, int code);
++/* Configure before boot with no guest workers. NULL retains CLI halt.
++ * Runs on exiting init AFTER pids_lock release; wake a separate supervisor.
++ * The notification must not join its own thread or start another guest. */
++extern void (*embedded_init_exit_notify)(int status);
+ 
+ typedef int (*ish_timer_tick_hook_t)(void);
+ void ish_set_timer_tick_hook(ish_timer_tick_hook_t hook);
+--- a/meson.build
++++ b/meson.build
+@@ -1710,6 +1710,7 @@
+     'kernel/epoll.c',
+ 
+     'util/timer.c',
++    'util/guest_threads.c',
+     'util/sync.c',
+     'util/fifo.c',
+     'util/fchdir.c',
+--- /dev/null
++++ b/util/guest_threads.c
+@@ -0,0 +1,208 @@
++#include "util/guest_threads.h"
++#include <errno.h>
++#include <stdatomic.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <fcntl.h>
++
++struct guest_service {
++    atomic_bool stopping;
++    int wake[2];
++    bool wake_sent; /* registry_lock; set by successful stop write, never cleared */
++    size_t outstanding; /* registry_lock; decremented only after join */
++};
++static _Thread_local struct guest_service *current_service;
++
++struct worker {
++    pthread_t thread;
++    void *(*run)(void *);
++    void *arg, *owner;
++    bool done, retired;
++    struct guest_service *service;
++    struct worker *next;
++};
++static pthread_mutex_t registry_lock = PTHREAD_MUTEX_INITIALIZER;
++static struct worker *workers;
++static atomic_bool stopping;
++
++bool guest_threads_stopping(void) {
++    return atomic_load_explicit(&stopping, memory_order_acquire);
++}
++void guest_threads_request_stop(void) {
++    pthread_mutex_lock(&registry_lock);
++    atomic_store_explicit(&stopping, true, memory_order_release);
++    pthread_mutex_unlock(&registry_lock);
++}
++static void completed(void *arg) {
++    struct worker *worker = arg;
++    pthread_mutex_lock(&registry_lock);
++    worker->done = true;
++    pthread_mutex_unlock(&registry_lock);
++}
++static void *run_worker(void *arg) {
++    struct worker *worker = arg;
++    void *result;
++    current_service = worker->service;
++    pthread_cleanup_push(completed, worker);
++    result = worker->run(worker->arg);
++    pthread_cleanup_pop(1);
++    return result;
++}
++int guest_service_thread_create(struct guest_service *service, pthread_t *thread,
++        void *(*run)(void *), void *arg, void *owner) {
++    struct worker *worker = calloc(1, sizeof(*worker));
++    if (!worker) return ENOMEM;
++    worker->run = run;
++    worker->arg = arg;
++    worker->owner = owner;
++    worker->service = service;
++    pthread_mutex_lock(&registry_lock);
++    int err = (guest_threads_stopping() || guest_service_stopping(service)) ? ECANCELED :
++        pthread_create(&worker->thread, NULL, run_worker, worker);
++    if (!err) {
++        if (service) service->outstanding++;
++        *thread = worker->thread;
++        worker->next = workers;
++        workers = worker;
++    }
++    pthread_mutex_unlock(&registry_lock);
++    if (err) free(worker);
++    return err;
++}
++int guest_thread_create(pthread_t *thread, void *(*run)(void *), void *arg, void *owner) {
++    return guest_service_thread_create(current_service, thread, run, arg, owner);
++}
++void guest_thread_retire(void *owner) {
++    pthread_mutex_lock(&registry_lock);
++    for (struct worker *worker = workers; worker; worker = worker->next) {
++        if (worker->owner == owner) {
++            worker->retired = true;
++            pthread_mutex_unlock(&registry_lock);
++            return;
++        }
++    }
++    pthread_mutex_unlock(&registry_lock);
++    /* First-process construction can fail before task_start. */
++    free(owner);
++}
++/* Joining a completed worker under registry_lock is safe: completed() is the
++ * outermost cleanup handler, and has released this lock before done is seen.
++ * A worker may run reap itself; never join its own pthread. */
++static int reap_locked(bool all, struct guest_service *only) {
++    struct worker **link = &workers;
++    while (*link) {
++        struct worker *worker = *link;
++        if ((only && worker->service != only) || !worker->done || pthread_equal(worker->thread, pthread_self()) ||
++                (!all && worker->owner && !worker->retired)) {
++            link = &worker->next;
++            continue;
++        }
++        int err = pthread_join(worker->thread, NULL);
++        if (err) return err;
++        *link = worker->next;
++        if (worker->service) worker->service->outstanding--;
++        if (worker->retired) free(worker->owner);
++        /* Live zombie task storage is still owned by the PID table. */
++        free(worker);
++    }
++    return 0;
++}
++int guest_threads_reap(void) {
++    pthread_mutex_lock(&registry_lock);
++    int err = reap_locked(false, NULL);
++    pthread_mutex_unlock(&registry_lock);
++    return err;
++}
++int guest_threads_join_stopped(void) {
++    pthread_mutex_lock(&registry_lock);
++    if (!guest_threads_stopping()) {
++        pthread_mutex_unlock(&registry_lock);
++        return EINVAL;
++    }
++    int err = reap_locked(true, NULL);
++    if (!err && workers) err = EBUSY;
++    pthread_mutex_unlock(&registry_lock);
++    return err;
++}
++
++int guest_service_new(struct guest_service **out) {
++    struct guest_service *service = calloc(1, sizeof(*service));
++    if (!service) return ENOMEM;
++    atomic_init(&service->stopping, false);
++    if (pipe(service->wake) < 0) {
++        int err = errno;
++        free(service);
++        return err;
++    }
++    for (int i = 0; i < 2; i++) {
++        if (fcntl(service->wake[i], F_SETFD, FD_CLOEXEC) < 0 ||
++                fcntl(service->wake[i], F_SETFL, O_NONBLOCK) < 0) {
++            int err = errno;
++            close(service->wake[0]);
++            close(service->wake[1]);
++            free(service);
++            return err;
++        }
++    }
++    *out = service;
++    return 0;
++}
++bool guest_service_stopping(struct guest_service *service) {
++    return service && atomic_load_explicit(&service->stopping, memory_order_acquire);
++}
++int guest_service_wake_fd(struct guest_service *service) {
++    return service->wake[0];
++}
++int guest_service_request_stop(struct guest_service *service) {
++    pthread_mutex_lock(&registry_lock);
++    atomic_store_explicit(&service->stopping, true, memory_order_release);
++    int err = 0;
++    if (!service->wake_sent) {
++        /* One persistent byte broadcasts readiness; nobody reads it. Both
++         * ends stay alive through all joins. A failed write is reported and
++         * a later stop call may retry; never claim a failed wake succeeded. */
++        if (write(service->wake[1], "!", 1) == 1)
++            service->wake_sent = true;
++        else
++            err = errno;
++    }
++    pthread_mutex_unlock(&registry_lock);
++    return err;
++}
++int guest_service_join_stopped(struct guest_service *service) {
++    pthread_mutex_lock(&registry_lock);
++    int err = !guest_service_stopping(service) ? EINVAL : reap_locked(true, service);
++    if (!err && service->outstanding) err = EBUSY;
++    pthread_mutex_unlock(&registry_lock);
++    return err;
++}
++int guest_service_destroy(struct guest_service *service) {
++    /* Supervisor owns service lifetime, serializes stop/fence/destroy, and
++     * discards all external handles before destroy. Workers retain it via
++     * outstanding, including children registered before stop. */
++    int err = guest_service_join_stopped(service);
++    if (err) return err;
++    close(service->wake[0]);
++    close(service->wake[1]);
++    free(service);
++    return 0;
++}
++void guest_thread_bind_owner(void *owner) {
++    pthread_mutex_lock(&registry_lock);
++    for (struct worker *w = workers; w; w = w->next)
++        if (pthread_equal(w->thread, pthread_self())) { w->owner = owner; break; }
++    pthread_mutex_unlock(&registry_lock);
++}
++bool guest_service_has_owner(struct guest_service *service, void *owner) {
++    bool found = false;
++    pthread_mutex_lock(&registry_lock);
++    for (struct worker *w = workers; w; w = w->next)
++        if (w->service == service && w->owner == owner && !w->done && !w->retired) {
++            found = true; break;
++        }
++    pthread_mutex_unlock(&registry_lock);
++    return found;
++}
++bool guest_current_service_stopping(void) {
++    return guest_service_stopping(current_service);
++}
+
+--- /dev/null
++++ b/util/guest_threads.h
+@@ -0,0 +1,38 @@
++#ifndef UTIL_GUEST_THREADS_H
++#define UTIL_GUEST_THREADS_H
++#include <stdbool.h>
++#include <pthread.h>
++/* This registry owns completion records, never task/timer storage. */
++int guest_thread_create(pthread_t *thread, void *(*run)(void *), void *arg, void *owner);
++/* Retire task storage; reclaimed only after its host thread has been joined. */
++void guest_thread_retire(void *owner);
++int guest_threads_reap(void);
++/* Stops admission. Does not by itself interrupt host syscalls. */
++void guest_threads_request_stop(void);
++bool guest_threads_stopping(void);
++/* Supervisor only, outside kernel locks; EBUSY if workers are still running. */
++int guest_threads_join_stopped(void);
++struct guest_service;
++/* Host errno APIs. Supervisor owns the handle until destroy succeeds.
++ * No external concurrent handle use is permitted across destroy. */
++int guest_service_new(struct guest_service **out);
++/* Explicit service entry is supervisor-only; worker children use inherited
++ * guest_thread_create. Do not move a live worker between services. */
++int guest_service_thread_create(struct guest_service *, pthread_t *,
++        void *(*run)(void *), void *arg, void *owner);
++bool guest_service_stopping(struct guest_service *);
++/* Borrowed fd, poll only: never read, close, or change flags. */
++int guest_service_wake_fd(struct guest_service *);
++/* Returns host errno if wake write fails; stop remains set, call may retry. */
++int guest_service_request_stop(struct guest_service *);
++/* EINVAL before stop; EBUSY while any member has not been joined.
++ * Does not join init or other services, or imply kernel resource reaping. */
++int guest_service_join_stopped(struct guest_service *);
++int guest_service_destroy(struct guest_service *);
++/* Does NOT reset kernel globals or authorize another boot. */
++#endif
++/* Entry workers bind their constructed task before guest execution. */
++void guest_thread_bind_owner(void *owner);
++/* Call with pids_lock held; lock order is pids_lock -> registry_lock. */
++bool guest_service_has_owner(struct guest_service *, void *owner);
++bool guest_current_service_stopping(void);
+
+--- a/util/timer.c
++++ b/util/timer.c
+@@ -1,8 +1,9 @@
+ #include <stdlib.h>
+-#include <signal.h>
+ #include <time.h>
+ #include "util/timer.h"
++#include "util/guest_threads.h"
+ #include "misc.h"
++#include "kernel/errno.h"
+ 
+ struct timer *timer_new(clockid_t clockid, timer_callback_t callback, void *data) {
+ //    assert(clockid == CLOCK_MONOTONIC || clockid == CLOCK_REALTIME);
+@@ -12,33 +13,37 @@
+     timer->data = data;
+     timer->active = false;
+     timer->thread_running = false;
+-    lock_init(&timer->lock);
++    pthread_mutex_init(&timer->lock, NULL);
++    pthread_cond_init(&timer->wake, NULL);
+     timer->dead = false;
+     return timer;
+ }
+ 
+ void timer_free(struct timer *timer) {
+-    lock(&timer->lock);
++    pthread_mutex_lock(&timer->lock);
+     timer->active = false;
+     if (timer->thread_running) {
+         timer->dead = true;
+-        pthread_kill(timer->thread, SIGUSR1);
+-        unlock(&timer->lock);
++        pthread_cond_signal(&timer->wake);
++        pthread_mutex_unlock(&timer->lock);
+     } else {
+-        unlock(&timer->lock);
++        pthread_mutex_unlock(&timer->lock);
++        pthread_cond_destroy(&timer->wake);
++        pthread_mutex_destroy(&timer->lock);
+         free(timer);
+     }
+ }
+ 
+ static void *timer_thread(void *param) {
+     struct timer *timer = param;
+-    lock(&timer->lock);
++    pthread_mutex_lock(&timer->lock);
+     while (true) {
+         struct timespec remaining = timespec_subtract(timer->end, timespec_now(timer->clockid));
+         while (timer->active && timespec_positive(remaining)) {
+-            unlock(&timer->lock);
+-            nanosleep(&remaining, NULL);
+-            lock(&timer->lock);
++            /* Default pthread condition clock is realtime on Darwin too.
++             * Convert the current remaining duration at each wake. */
++            struct timespec deadline = timespec_add(timespec_now(CLOCK_REALTIME), remaining);
++            pthread_cond_timedwait(&timer->wake, &timer->lock, &deadline);
+             remaining = timespec_subtract(timer->end, timespec_now(timer->clockid));
+         }
+         if (timer->active)
+@@ -51,15 +56,23 @@
+         }
+     }
+     timer->thread_running = false;
+-    if (timer->dead)
++    bool dead = timer->dead;
++    pthread_mutex_unlock(&timer->lock);
++    if (dead) {
++        pthread_cond_destroy(&timer->wake);
++        pthread_mutex_destroy(&timer->lock);
+         free(timer);
+-    else
+-        unlock(&timer->lock);
++    }
+     return NULL;
+ }
+ 
+ int timer_set(struct timer *timer, struct timer_spec spec, struct timer_spec *oldspec) {
+-    lock(&timer->lock);
++    int reap_error = guest_threads_reap();
++    if (reap_error != 0) {
++        errno = reap_error;
++        return errno_map();
++    }
++    pthread_mutex_lock(&timer->lock);
+     struct timespec now = timespec_now(timer->clockid);
+     if (oldspec != NULL) {
+         oldspec->value = timespec_subtract(timer->end, now);
+@@ -71,12 +84,19 @@
+     timer->interval = spec.interval;
+     timer->active = !timespec_is_zero(spec.value);
+     if (timer->thread_running) {
+-        pthread_kill(timer->thread, SIGUSR1);
++        pthread_cond_signal(&timer->wake);
+     } else if (timer->active) {
+         timer->thread_running = true;
+-        pthread_create(&timer->thread, NULL, timer_thread, timer);
+-        pthread_detach(timer->thread);
++        int err = guest_thread_create(&timer->thread, timer_thread, timer, NULL);
++        if (err != 0) {
++            timer->thread_running = false;
++            timer->active = false;
++            pthread_mutex_unlock(&timer->lock);
++            if (err == ECANCELED) return _EINTR;
++            errno = err;
++            return errno_map();
++        }
+     }
+-    unlock(&timer->lock);
++    pthread_mutex_unlock(&timer->lock);
+     return 0;
+ }
+--- a/util/timer.h
++++ b/util/timer.h
+@@ -61,7 +61,8 @@
+     pthread_t thread;
+     timer_callback_t callback;
+     void *data;
+-    lock_t lock;
++    pthread_mutex_t lock;
++    pthread_cond_t wake;
+ 
+     bool dead; // set by timer_free, the thread will free the timer if this is set when it finishes
+ };

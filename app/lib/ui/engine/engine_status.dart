@@ -15,6 +15,12 @@ bool isLocalStartupFailure(RuntimeStatus status) =>
     (status.phase == RuntimePhase.stopping || status.phase == RuntimePhase.error) &&
     (status.error?.trim().startsWith('start failed:') ?? false);
 
+/// Keep recovery visible while a retry still awaits native completion.
+bool isRuntimeStopBlocked(RuntimeStatus status) =>
+    status.phase == RuntimePhase.stopBlocked ||
+    (status.phase == RuntimePhase.stopping &&
+        (status.error?.startsWith('shellbox_stop_blocked:') ?? false));
+
 /// How the local engine's state reads in the UI. Colour is never the
 /// only signal: every dot comes with one of these labels.
 class EngineStatusView {
@@ -34,7 +40,7 @@ class EngineStatusView {
             ? appL10n.phoneEngineInstalling
             : appL10n.phoneEngineInstallPercent((state.progress!.fraction * 100).round()),
       ),
-      RuntimePhase.installed => EngineStatusView(
+      RuntimePhase.installed || RuntimePhase.stopped => EngineStatusView(
         StatusTone.idle,
         status.inSafeMode ? appL10n.phoneEngineStoppedSafe : appL10n.commonStopped,
       ),
@@ -53,6 +59,8 @@ class EngineStatusView {
                 StatusTone.ok,
                 status.onProbation ? appL10n.phoneEngineRunningProbation : appL10n.commonRunning,
               ),
+      RuntimePhase.stopBlocked => EngineStatusView(StatusTone.error, appL10n.shellBoxStopBlocked),
+      RuntimePhase.resetting => EngineStatusView(StatusTone.busy, appL10n.shellBoxResetting),
       RuntimePhase.stopping => EngineStatusView(
         startupFailure ? StatusTone.error : StatusTone.busy,
         startupFailure ? appL10n.phoneStartupFailureStopping : appL10n.commonStopping,

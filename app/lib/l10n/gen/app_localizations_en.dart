@@ -18420,6 +18420,26 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get shellBoxStopBlocked => 'Stop blocked (StopBlocked)';
+
+  @override
+  String get shellBoxStopBlockedDetail =>
+      'Service completion was not confirmed within 5 seconds. Linux and resources still in use are retained; ordinary file reads may return late. Retry stop, or swipe the app away in the app switcher. Swiping ends the entire app process at your request; the app does not forcibly free resources in use. Start, restart and data reset remain unavailable until stop is confirmed.';
+
+  @override
+  String get shellBoxRetryStop => 'Retry stop';
+
+  @override
+  String get shellBoxResetting => 'Clearing local user data';
+
+  @override
+  String get shellBoxResetTitle => 'Clear local user data';
+
+  @override
+  String get shellBoxResetDetail =>
+      'Only user data under /root outside the selected keep groups is cleared. Installed Linux, Node and DSH are retained. This does not reinstall or repair the runtime.';
+
+  @override
   String starPromptTitle(int hours) {
     String _temp0 = intl.Intl.pluralLogic(
       hours,

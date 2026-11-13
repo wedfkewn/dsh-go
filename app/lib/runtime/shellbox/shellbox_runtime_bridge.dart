@@ -48,6 +48,7 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
     Timer? timer;
     var generation = 0;
     String? previous;
+    var logThrough = 0;
 
     Future<void> poll(int current) async {
       try {
@@ -59,6 +60,12 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
           controller.add(RuntimeStatusEvent(_status(status)));
           previous = signature;
         }
+        final snapshot = await logSnapshot(lines: 2000);
+        if (current != generation) return;
+        final entries = snapshot.entries.where((entry) => entry.seq > logThrough).toList()
+          ..sort((a, b) => a.seq.compareTo(b.seq));
+        if (entries.isNotEmpty) controller.add(RuntimeLogsEvent(entries));
+        logThrough = snapshot.throughSeq;
         for (final notice in (raw['notices'] as List? ?? const [])) {
           if (notice is String && notice.isNotEmpty) controller.add(RuntimeNoticeEvent(notice));
         }
@@ -85,6 +92,18 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
     return controller.stream;
   }
 
+  static final _sourceKey = Object();
+  String get _source => Zone.current[_sourceKey] as String? ?? 'runtime.direct';
+
+  @override
+  Future<T> lifecycleRequest<T>(String action, String source, Future<T> Function() operation) => runZoned(() async {
+    await _channel.invokeMethod<void>('lifecycleRequest', {'action': action, 'source': source});
+    return operation();
+  }, zoneValues: {_sourceKey: source});
+
+  @override
+  Future<void> appLifecycle(String event) => _channel.invokeMethod<void>('appLifecycle', {'event': event});
+
   @override
   Future<RuntimeStatus> status() async => _status(await _service.statusMap());
 
@@ -95,6 +114,7 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
     EngineMode? mode,
     bool visualReplies = true,
   }) => _channel.invokeMethod<void>('start', {
+    'source': _source,
     'env': env,
     'phoneStorage': phoneStorage,
     'mode': mode?.name,
@@ -102,7 +122,7 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
   });
 
   @override
-  Future<void> stop() => _service.stop();
+  Future<void> stop() => _channel.invokeMethod<void>('stop', {'source': _source});
 
   // The base implementations swallow PlatformException; keep iOS errors visible.
   @override
@@ -117,8 +137,7 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
       _channel.invokeMethod<void>('install', dropKept ? const {'dropKept': true} : null);
 
   @override
-  Future<void> reset({ResetKeep keep = const ResetKeep()}) =>
-      _channel.invokeMethod<void>('reset', {'keep': keep.wire});
+  Future<void> reset({ResetKeep keep = const ResetKeep()}) => _channel.invokeMethod<void>('reset', {'keep': keep.wire});
 
   @override
   Future<List<String>> logs({int lines = 500}) async =>
@@ -126,9 +145,7 @@ class ShellBoxRuntimeBridge extends RuntimeBridge {
 
   @override
   Future<RuntimeLogSnapshot> logSnapshot({int lines = 300}) async =>
-      RuntimeLogSnapshot.fromMap(
-        (await _channel.invokeMapMethod<Object?, Object?>('logSnapshot', {'lines': lines}))!,
-      );
+      RuntimeLogSnapshot.fromMap((await _channel.invokeMapMethod<Object?, Object?>('logSnapshot', {'lines': lines}))!);
 }
 
 /// Routes portable inherited methods without ever touching dsh/runtime.
@@ -165,6 +182,9 @@ class _ShellBoxChannel extends MethodChannel {
       case 'setWorkspaceRecovery':
       case 'failureLog':
       case 'networkMetered':
+      case 'appLifecycle':
+      case 'lifecycleRequest':
+      case 'stop':
       case 'start':
       case 'install':
       case 'reset':
