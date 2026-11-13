@@ -101,3 +101,54 @@ Source comparison: Fish Pocket README section "How it works",
 app/DshIOS/NodeEngine.swift, engine/runtime/child-process.mjs and
 engine/runtime/shell.mjs. Implementation and licensing must be reviewed before
 importing third-party source, binaries or assets.
+
+## Implementation after the Phase 1 scaffold
+
+The feature branch now embeds independently distributed digidem NodeMobile
+24.20.0-0 when the pinned artifacts have been prepared. The build selects the
+arm64 platform slice, copies it into Runner and signs it when signing is
+enabled. The stock build can omit these optional inputs. A dedicated thread
+calls `node_start` once, then a long-lived ESM supervisor owns a single DSH
+Worker. A command generation gates Worker messages and native readiness.
+The existing patched DSH 0.2.2-rc.1 tree is extracted from the pinned payload
+with ELF and native addons removed. The required internal-module loader uses
+Node's own loader under `--expose-internals`.
+
+Reference review at Fish Pocket commit `796ded4`: NodeEngine owns the single
+native start; main.mjs supervises engine Workers; boot.mjs applies the iOS
+profile and invokes the real CLI. child-process and node-worker route commands
+to Workers, just-bash, or linked native tools. shell and real-paths provide a
+filesystem view, while module redirects select stand-ins for unsupported
+addons. Its build scripts pin the framework and assemble the engine. DSH uses
+the Node networking stack and the existing DSH plugin loader. This branch
+implements its own Swift supervisor bridge and Worker protocol, without
+copying Fish Pocket code, framework modifications or assets.
+
+### Reproduce the current vertical slice
+
+1. From the repository root run `bash runtime/native-node/prepare-ios.sh PATH_TO_PINNED_PAYLOAD`.
+   The framework and upstream license are downloaded with SHA256 verification.
+   This step leaves the original payload and guest data in place.
+2. Build Runner in Debug for an arm64 iOS Simulator. Add
+   `--dsh-native-node-smoke` to the Runner launch arguments, using an isolated
+   simulator installation. This explicitly starts the native channel and
+   prevents the ShellBox plugin from starting during that launch.
+3. Check the console for `native-node: authenticated DSH readiness`.
+   Readiness requires the anonymous request to be rejected and a token exchange
+   to reach the DSH page. Remove the flag and relaunch to use ShellBox.
+4. Run the host ESM/auth/stop/restart smoke with
+   `node --version` (Node 24.22.3) and `node runtime/native-node/smoke.mjs`.
+
+Native persistence lives under Application Support/NativeNode, with separate
+HOME, DSH_HOME and temporary paths. Flutter still uses the existing ShellBox
+RuntimeBridge. The experimental channel is a native validation entry point
+only. General subprocess execution, the just-bash workspace fence, native
+flock for durable sessions, unsupported native plugins, Flutter backend
+selection and background authorization for native Node remain open.
+No migration of ShellBox data has been performed.
+
+Verified on an arm64 iOS simulator: NodeMobile 24.20.0 loaded a DSH ESM Worker,
+started the actual DSH loopback service, and passed native authentication.
+The host smoke additionally verified Worker replacement, token rotation,
+and stop. True-device network, an authenticated model conversation, Flutter
+chat on the new backend, and Android runtime tests remain unverified.

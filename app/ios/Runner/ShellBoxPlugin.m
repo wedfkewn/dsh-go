@@ -603,6 +603,11 @@ static NSString *ShellBoxInstallPayload(void) {
 }
 - (void)start:(id)arguments result:(FlutterResult)result {
     [self recordLifecycle:@"start.request"];
+    Class nativeRuntime = NSClassFromString(@"DshNativeNodeRuntime");
+    if (nativeRuntime && [[nativeRuntime valueForKey:@"selectedForSmoke"] boolValue]) {
+        result([FlutterError errorWithCode:@"native_node_selected" message:@"The native runtime owns this launch." details:nil]);
+        return;
+    }
 
     if (bootFailed) { result([self rejection:@"shellbox_boot_failed"]); return; }
     if (!sb_can_initialize(sessionPhase, operationPending) || service) {
