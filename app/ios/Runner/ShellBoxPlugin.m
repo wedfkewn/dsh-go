@@ -10,6 +10,7 @@
 #include "ShellBoxSession.h"
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
@@ -50,6 +51,7 @@ static NSMutableData *pendingOutput[2];
 static BOOL droppingOutput[2], privateOutput[2];
 static unsigned expectedPort;
 static NSUInteger startGeneration;
+static BOOL deepSeekHostProbed;
 static NSString *runtimeInstanceID, *runtimeStartedAt, *requestSource, *transitionSource;
 static NSString *flutterLifecycle = @"unknown";
 // Authorization state is independent of sessionPhase and guest ownership.
@@ -440,13 +442,14 @@ static NSString *ShellBoxInstallPayload(void) {
     [self recordLifecycle:event source:requestSource];
 }
 - (void)recordLifecycle:(NSString *)event source:(NSString *)source {
-    NSDictionary *fields = @{@"event": event, @"timestamp": [NSISO8601DateFormatter.new stringFromDate:NSDate.date], @"appPid": @(getpid()),
+    NSMutableDictionary *fields = [@{@"event": event, @"timestamp": [NSISO8601DateFormatter.new stringFromDate:NSDate.date], @"appPid": @(getpid()),
         @"runtimeInstanceId": runtimeInstanceID ?: (id)NSNull.null,
         @"dshPid": @(dsh_shellbox_command_pid()), @"guestInitPid": @1,
         @"webPort": @(expectedPort), @"startedAt": runtimeStartedAt ?: (id)NSNull.null,
         @"flutterLifecycle": flutterLifecycle, @"source": source ?: @"native.internal",
         @"phase": shellBoxInstalling ? @"installing" :
-            (SBPhase() ?: (lifecycleFailure ? @"error" : (ShellBoxInstalled() ? @"installed" : @"notInstalled")))};
+            (SBPhase() ?: (lifecycleFailure ? @"error" : (ShellBoxInstalled() ? @"installed" : @"notInstalled")))} mutableCopy];
+    if ([source isEqual:@"native.backgroundExecution"] && backgroundError) fields[@"reason"] = backgroundError;
     NSData *json = [NSJSONSerialization dataWithJSONObject:fields options:NSJSONWritingSortedKeys error:nil];
     [self recordSystemMessage:[@"shellbox.lifecycle " stringByAppendingString:
         [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]]];
@@ -464,8 +467,21 @@ static NSString *ShellBoxInstallPayload(void) {
 }
 
 - (NSDictionary *)statusMap {
-    if (sessionPhase == SB_RUNNING && dsh_shellbox_command_status() != -1) {
-        [self stop:^(id reply) { (void)reply; }];
+    if (sessionPhase == SB_RUNNING) {
+        int status = dsh_shellbox_command_status();
+        if (status != -1) {
+            NSString *message = WIFSIGNALED(status)
+                ? [NSString stringWithFormat:@"Local DSH exited unexpectedly (signal %d).", WTERMSIG(status)]
+                : [NSString stringWithFormat:@"Local DSH exited unexpectedly (exit code %d).", WEXITSTATUS(status)];
+            [self recordSystemMessage:message];
+            [self recordLifecycle:@"shellbox_command_exited" source:@"runtime.commandExit"];
+            [self stop:^(id reply) {
+                if (reply) return;
+                lifecycleFailure = @{@"code": @"shellbox_command_exited", @"message": message};
+                transitionSource = @"runtime.commandExit";
+                [self setPhase:SB_ERROR];
+            }];
+        }
     }
     NSMutableDictionary *status = [@{@"phase": shellBoxInstalling ? @"installing" :
         (SBPhase() ?: (lifecycleFailure ? @"error" : (ShellBoxInstalled() ? @"installed" : @"notInstalled"))),
@@ -496,6 +512,31 @@ static NSString *ShellBoxInstallPayload(void) {
         @"Service completion is unconfirmed. Retry stop or close the app from the app switcher. The guest and resources remain alive."};
     [self recordSystemMessage:@"StopBlocked: service completion unconfirmed; resources retained. Retry stop or close the app."];
 }
+// The guest already reported a model-list transport failure. Probe the same
+// endpoint once from iOS without forwarding a key, cookies, or response data.
+- (void)probeDeepSeekFromHost {
+    if (deepSeekHostProbed) return;
+    deepSeekHostProbed = YES;
+    NSUInteger generation = startGeneration;
+    NSURLSessionConfiguration *configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration;
+    configuration.timeoutIntervalForRequest = 8;
+    configuration.timeoutIntervalForResource = 10;
+    configuration.HTTPCookieStorage = nil;
+    configuration.URLCredentialStorage = nil;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+    NSURL *url = [NSURL URLWithString:@"https://api.deepseek.com/models"];
+    [[session dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        [session finishTasksAndInvalidate];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (generation != startGeneration) return;
+            NSString *outcome = error
+                ? [NSString stringWithFormat:@"error=%@/%ld", error.domain, (long)error.code]
+                : [NSString stringWithFormat:@"http=%ld", (long)[(NSHTTPURLResponse *)response statusCode]];
+            [self recordSystemMessage:[@"shellbox.network deepseek host " stringByAppendingString:outcome]];
+        });
+    }] resume];
+}
+
 - (void)receiveOutput:(NSData *)data stream:(int)stream {
     NSUInteger index = stream == 2 ? 1 : 0;
     if (!data.length) {
@@ -543,6 +584,11 @@ static NSString *ShellBoxInstallPayload(void) {
                     [secrets addObject:launchToken];
                 }
             }
+        }
+        if ([line containsString:@"[llm-deepseek-api-key] model listing from https://api.deepseek.com/models failed"] &&
+            [line containsString:@"could not reach https://api.deepseek.com/models"]) {
+            [self recordSystemMessage:@"shellbox.network deepseek guest transport_failed"];
+            [self probeDeepSeekFromHost];
         }
         for (NSString *secret in secrets) if (secret.length) line = [line stringByReplacingOccurrencesOfString:secret withString:@"[REDACTED]"];
         for (NSString *pattern in @[@"(?i)(?:bearer|basic)\\s+[^\\s]+", @"(?i)[A-Za-z0-9_.-]*(?:token|api[_-]?key|secret|password|cookie|authorization|credential|passphrase)[A-Za-z0-9_.-]*[\"']?\\s*[:=].*", @"(?:sk-|glpat-|gh[pousr]_|github_pat_|npm_|hf_|xox[baprs]-)[A-Za-z0-9_-]+", @"eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+", @"[a-z][a-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@"] ) {
@@ -614,7 +660,7 @@ static NSString *ShellBoxInstallPayload(void) {
     }
     expectedPort = 0;
     [self setPhase:SB_STARTING]; lifecycleFailure = nil; operationPending = YES;
-    nodeVerified = NO; endpoint = nil; launchToken = nil;
+    nodeVerified = NO; deepSeekHostProbed = NO; endpoint = nil; launchToken = nil;
     NSData *environment = ShellBoxEnvironment(extra);
     NSString *root = [[ShellBoxHome() URLByAppendingPathComponent:@"active/data"] path];
     // Ask the OS for an available loopback port; readiness uses the observed DSH URL.
@@ -816,13 +862,17 @@ static NSString *ShellBoxInstallPayload(void) {
             result([FlutterError errorWithCode:@"background_task_busy" message:nil details:nil]); return;
         }
         if (same && [backgroundTaskInfo isEqual:next] && backgroundTaskVerified) { result(nil); return; }
-        if (!same) backgroundCancellationRequested = NO;
+        if (!same) {
+            backgroundCancellationRequested = NO;
+            backgroundError = nil;
+        }
         backgroundTaskInfo = next;
         backgroundTaskVerified = ![status isEqual:@"unknown"];
         if (!same) backgroundExecutionState = UIApplication.sharedApplication.applicationState == UIApplicationStateActive
             ? @"foreground" : @"suspendedOrUnknown";
         checkpointDirty = YES;
         if ([@[@"completed", @"error"] containsObject:status]) {
+            if ([status isEqual:@"error"]) backgroundError = @"chat_task_failed";
             [self finishBackground:[status isEqual:@"completed"] state:status cancelTask:NO];
         } else if (![@"running" isEqual:status] && (backgroundSystemTask || backgroundRequestID)) {
             [self finishBackground:NO state:@"suspendedOrUnknown" cancelTask:NO];
