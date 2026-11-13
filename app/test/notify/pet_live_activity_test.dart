@@ -48,6 +48,23 @@ void main() {
     expect(petLiveActivityPayload(const LivePush(enabled: true)), isNull);
   });
 
+  test('selected pet idle fallback respects selection and enabled switch', () {
+    const idle = LivePush(enabled: true, packId: 'deepy-whale');
+    final payload = petLiveActivityPayload(idle)!;
+    expect(payload['host'], 'local-pet');
+    expect(payload['sessionId'], 'deepy-whale');
+    expect(payload['packId'], 'deepy-whale');
+    expect(payload['phase'], 'idle');
+    expect(petLiveActivityPayload(idle), payload);
+    expect(petLiveActivityPayload(const LivePush(enabled: true, packId: noPetId)), isNull);
+    expect(petLiveActivityPayload(const LivePush(enabled: false, packId: 'deepy-whale')), isNull);
+    final active = petLiveActivityPayload(LivePush(enabled: true, packId: 'deepy-whale', activity: push().activity))!;
+    expect(active['phase'], 'thinking');
+    expect(active['sessionId'], 'session / 中文');
+    expect(active['packId'], 'deepy-whale');
+    expect(active['label'], 'Status');
+  });
+
   const channel = MethodChannel('test/pet_live_activity');
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
@@ -75,15 +92,35 @@ void main() {
     expect(calls, ['start', 'update', 'end']);
   });
 
+  test('selection, session takeover, idle return, switch and removal', () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return call.method;
+    });
+    final bridge = PetLiveActivityChannel(channel: channel);
+    const idle = LivePush(enabled: true, packId: 'deepy-whale');
+    await bridge.push(idle);
+    await bridge.push(idle);
+    await bridge.push(LivePush(enabled: true, packId: 'deepy-whale', activity: push().activity));
+    await bridge.push(idle);
+    await bridge.push(const LivePush(enabled: true, packId: 'whale-girl'));
+    await bridge.push(const LivePush(enabled: true, packId: noPetId));
+    expect(calls.map((c) => c.method), ['start', 'update', 'start', 'start', 'start', 'end']);
+    expect((calls[3].arguments as Map)['phase'], 'idle');
+    expect((calls[4].arguments as Map)['packId'], 'whale-girl');
+  });
+
   test('native failure is observable and does not poison subsequent operations', () async {
     messenger.setMockMethodCallHandler(channel, (call) async {
       if (call.method == 'start') throw PlatformException(code: 'pet_live_activity_disabled');
       return 'ended';
     });
     final bridge = PetLiveActivityChannel(channel: channel);
-    await expectLater(bridge.push(push()), throwsA(isA<PlatformException>().having(
-      (e) => e.code, 'code', 'pet_live_activity_disabled',
-    )));
+    await expectLater(
+      bridge.push(push()),
+      throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'pet_live_activity_disabled')),
+    );
     expect(await bridge.push(const LivePush(enabled: false)), 'ended');
   });
 }

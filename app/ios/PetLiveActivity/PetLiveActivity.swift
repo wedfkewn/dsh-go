@@ -11,7 +11,7 @@ struct PetLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: PetActivityAttributes.self) { context in
       HStack(spacing: 12) {
-        PetExpression(phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
+        PetExpression(packId: context.state.packId, phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
           .font(.system(size: 32))
         Text(context.isStale ? context.state.staleLabel : context.state.label).font(.headline)
         Spacer()
@@ -25,7 +25,7 @@ struct PetLiveActivity: Widget {
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          PetExpression(phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label).font(.system(size: 30))
+          PetExpression(packId: context.state.packId, phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label).font(.system(size: 30))
         }
         DynamicIslandExpandedRegion(.trailing) {
           Image(systemName: context.isStale ? "clock.badge.exclamationmark" : appearance(context.state.phase).symbol)
@@ -36,13 +36,13 @@ struct PetLiveActivity: Widget {
             .foregroundStyle(appearance(context.state.phase).color)
         }
       } compactLeading: {
-        PetExpression(phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
+        PetExpression(packId: context.state.packId, phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
       } compactTrailing: {
         Image(systemName: context.isStale ? "clock.badge.exclamationmark" : appearance(context.state.phase).symbol)
           .foregroundStyle(appearance(context.state.phase).color)
           .accessibilityLabel(context.isStale ? context.state.staleLabel : context.state.label)
       } minimal: {
-        PetExpression(phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
+        PetExpression(packId: context.state.packId, phase: context.state.phase, label: context.isStale ? context.state.staleLabel : context.state.label)
       }
       .widgetURL(context.attributes.url)
       .keylineTint(appearance(context.state.phase).color)
@@ -64,10 +64,19 @@ private func appearance(_ phase: String) -> (face: String, symbol: String, color
 }
 
 private struct PetExpression: View {
+  let packId: String?
   let phase: String
   let label: String
+  private var face: String {
+    switch packId {
+    case "deepy-whale": return "🐳"
+    case "whale-girl": return "🐋"
+    default: return appearance(phase).face
+    }
+  }
+
   var body: some View {
-    Text(appearance(phase).face)
+    Text(face)
       .minimumScaleFactor(0.5)
       .lineLimit(1)
       .accessibilityLabel(label)

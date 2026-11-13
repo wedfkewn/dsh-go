@@ -11,9 +11,23 @@ import 'notify_channel.dart';
 /// Presentation-only adaptation of the existing LivePush/reducer contract.
 /// No titles, approval details, prompts or credentials go onto the lock screen.
 Map<String, Object?>? petLiveActivityPayload(LivePush push) {
-  final activity = push.enabled ? push.activity : null;
+  if (!push.enabled) return null;
+  final packId = push.packId == noPetId ? null : push.packId;
+  final activity = push.activity;
   final target = activity?.target;
-  if (activity == null || target == null) return null;
+  if (activity == null || target == null) {
+    if (packId == null) return null;
+    // iOS-only fallback: keep the selected pet visible between conversations.
+    // This opaque target cannot be mistaken for a real chat host.
+    return {
+      'host': 'local-pet',
+      'sessionId': packId,
+      'packId': packId,
+      'phase': 'idle',
+      'label': appL10n.companionStatusIdle,
+      'staleLabel': appL10n.mediaConfigKeyUnknown,
+    };
+  }
   final phase = switch (activity.kind) {
     LiveKind.waiting => 'waitingApproval',
     LiveKind.done => 'completed',
@@ -28,6 +42,7 @@ Map<String, Object?>? petLiveActivityPayload(LivePush push) {
     // Exclude the optional host display name from external presentation data.
     'host': jsonEncode({'kind': target.host.kind.name, 'id': target.host.id}),
     'sessionId': target.sessionId,
+    'packId': ?packId,
     'phase': phase,
     'label': phase == 'idle' ? appL10n.companionStatusIdle : activity.chip,
     'staleLabel': appL10n.mediaConfigKeyUnknown,

@@ -4,6 +4,7 @@ import Foundation
 @available(iOS 16.2, *)
 struct PetActivityAttributes: ActivityAttributes {
   struct ContentState: Codable, Hashable {
+    var packId: String?
     var phase: String
     var label: String
     var staleLabel: String
@@ -14,6 +15,7 @@ struct PetActivityAttributes: ActivityAttributes {
   var sessionId: String
 
   var url: URL? {
+    guard host != "local-pet" else { return nil }
     var parts = URLComponents()
     parts.scheme = "dshgo"
     parts.host = "pet-session"

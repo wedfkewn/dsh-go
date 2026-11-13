@@ -77,9 +77,10 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
         for activity in activities where activity.id != current?.id {
           await activity.end(nil, dismissalPolicy: .immediate)
         }
-        let state = PetActivityAttributes.ContentState(phase: phase, label: label, staleLabel: staleLabel)
+        let state = PetActivityAttributes.ContentState(packId: args["packId"] as? String, phase: phase, label: label, staleLabel: staleLabel)
         // A suspended Dart process cannot promise fresh status indefinitely.
-        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(300))
+        // A local idle pet has no session status that can become stale.
+        let content = ActivityContent(state: state, staleDate: host == "local-pet" ? nil : Date().addingTimeInterval(300))
         if let activity = current, activity.activityState == .active || activity.activityState == .stale {
           let changed = activity.content.state.phase != phase
           let alert: AlertConfiguration? = changed && ["waitingApproval", "completed", "error"].contains(phase)
