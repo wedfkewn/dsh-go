@@ -199,6 +199,7 @@ class SettingsController extends Notifier<AppSettings> {
   }
 
   Future<void> setApiKey(String key) async {
+    await _loaded;
     ref.read(readListCredentialEpochProvider.notifier).advance();
     final trimmed = key.trim();
     if (trimmed.isEmpty) {
