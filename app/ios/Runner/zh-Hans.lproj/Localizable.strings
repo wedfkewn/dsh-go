@@ -1,0 +1,22 @@
+"DSH Go is working" = "DSH Go 正在运行";
+"This conversation is still going" = "这一轮对话还在继续";
+"Ask DSH Go" = "问 DSH Go";
+"Ask" = "提问";
+"Message" = "内容";
+"What would you like to ask?" = "想问什么？";
+"Ask DSH Go ${text}" = "问 DSH Go ${text}";
+"Opens a new conversation with this message in the composer." = "新建对话，把这段内容放进输入框。";
+"Voice Input" = "语音输入";
+"Opens a new conversation and starts dictating." = "新建对话并开始听写。";
+"New Conversation" = "新建对话";
+"Opens a new conversation." = "新建对话。";
+
+"DSH task" = "DSH 任务";
+"Working · progress unknown" = "正在执行 · 进度未知";
+"Background authorization ended" = "后台授权结束";
+"Waiting to resume" = "等待恢复";
+"Task completed" = "任务完成";
+"Task failed or canceled" = "任务异常或已取消";
+"Waiting for approval" = "等待用户审批";
+"Continuing in background" = "后台续跑中";
+"Task running" = "任务正在执行";

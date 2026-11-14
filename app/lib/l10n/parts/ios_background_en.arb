@@ -1,0 +1,23 @@
+{
+  "iosBackgroundTitle": "iOS background execution",
+  "iosBackgroundEnable": "Allow user tasks to continue",
+  "iosBackgroundContinued": "Continued processing (iOS 26+)",
+  "iosBackgroundGrace": "Short background cleanup: automatically save recovery metadata",
+  "iosBackgroundLimits": "The system controls background time; permanent execution is not guaranteed. Keep long tasks in the foreground or use a remote server. Recovery metadata cannot restore terminated Linux memory tasks.",
+  "iosBackgroundState": "Background execution state",
+  "iosBackgroundRefresh": "Refresh status",
+  "iosBackgroundForeground": "Foreground",
+  "iosBackgroundResuming": "Resuming; waiting for session synchronization",
+  "iosBackgroundGraceState": "Saving recovery metadata",
+  "iosBackgroundContinuedState": "Continuing in background (progress unknown)",
+  "iosBackgroundUnknown": "Waiting to resume; task execution is unconfirmed",
+  "iosBackgroundExpired": "Background authorization ended",
+  "iosBackgroundFailed": "Background request failed",
+  "iosBackgroundCompleted": "Task completed",
+  "iosBackgroundError": "Task failed or canceled",
+  "iosBackgroundUnsupported": "Requires iOS 26 or later",
+  "iosBackgroundSystemMayDecline": "The system may decline a request or end authorization early",
+  "iosBackgroundRegistrationFailed": "System task registration failed; use foreground or remote mode",
+  "iosBackgroundCancel": "End continuation and request task cancellation",
+  "iosBackgroundUnavailable": "Native background state unavailable"
+}

@@ -1,0 +1,124 @@
+--- a/tools/fakefs.c
++++ b/tools/fakefs.c
+@@ -70,7 +70,22 @@
+ // The schema lives in fs/fake-schema.c, which libfakefs and the kernel share; a
+ // second copy here was a database two tools could disagree about.
+ 
++// Import runs inside Runner: every error must close its staging resources.
++#undef FILL_ERR
++#define FILL_ERR(_type, _code, _message) do { \
++    err_out->line = __LINE__; \
++    err_out->type = _type; \
++    err_out->code = _code; \
++    err_out->message = strdup(_message); \
++    goto import_cleanup; \
++} while (0)
++
+ bool fakefs_import(const char *archive_path, const char *fs, struct fakefsify_error *err_out, struct progress p) {
++    bool success = false;
++    int root_fd = -1, fd = -1;
++    sqlite3 *db = NULL;
++    struct archive *archive = NULL;
++    char *entry_path_copy = NULL;
+     int err = mkdir(fs, 0777);
+     if (err < 0)
+         POSIX_ERR();
+@@ -79,13 +94,12 @@
+     char path_tmp[PATH_MAX];
+     snprintf(path_tmp, sizeof(path_tmp), "%s/data", fs);
+     err = mkdir(path_tmp, 0777);
+-    int root_fd = open(path_tmp, O_RDONLY);
++    root_fd = open(path_tmp, O_RDONLY);
+     if (root_fd < 0)
+         POSIX_ERR();
+ 
+     // open the database
+     snprintf(path_tmp, sizeof(path_tmp), "%s/meta.db", fs);
+-    sqlite3 *db;
+     err = sqlite3_open_v2(path_tmp, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+     CHECK_ERR();
+     EXEC("pragma journal_mode=wal")
+@@ -96,7 +110,7 @@
+     }
+ 
+     // open the archive
+-    struct archive *archive = archive_read_new();
++    archive = archive_read_new();
+     if (archive == NULL)
+         ARCHIVE_ERR(archive);
+     archive_read_support_filter_gzip(archive);
+@@ -145,7 +159,7 @@
+         }
+ 
+         // mkdir -p
+-        char *entry_path_copy = strdup(entry_path);
++        entry_path_copy = strdup(entry_path);
+         char *slash = entry_path_copy;
+         while ((slash = strchr(*slash ? slash + 1 : slash, '/')) != NULL) {
+             *slash = '\0';
+@@ -157,8 +171,9 @@
+             }
+         }
+         free(entry_path_copy);
+-
+-        int fd = -1;
++        entry_path_copy = NULL;
++
++        fd = -1;
+         // first, create node
+         switch (archive_entry_filetype(entry)) {
+             case AE_IFREG:
+@@ -205,8 +220,8 @@
+             case AE_IFIFO:
+                 break;
+         }
+-        if (fd != -1)
+-            close(fd);
++        if (fd != -1) close(fd);
++        fd = -1;
+ 
+         struct timespec times[2] = {
+             // for utimes, atime is first, mtime is second
+@@ -247,17 +262,33 @@
+         STEP_RESET(insert_path);
+     }
+ 
+-    FINALIZE(insert_stat);
+-    FINALIZE(insert_path);
+-    FINALIZE(insert_hardlink);
++    if (archive_read_close(archive) != ARCHIVE_OK)
++        ARCHIVE_ERR(archive);
+     EXEC("commit");
+-    sqlite3_close(db);
+-    close(root_fd);
+-
+-    if (archive_read_free(archive) != ARCHIVE_OK)
+-        ARCHIVE_ERR(archive);
+-    return true;
++    success = true;
++import_cleanup:
++    free(entry_path_copy);
++    if (fd != -1) close(fd);
++    if (db != NULL) {
++        sqlite3_stmt *stmt;
++        while ((stmt = sqlite3_next_stmt(db, NULL)) != NULL)
++            sqlite3_finalize(stmt);
++        if (!success) sqlite3_exec(db, "rollback", NULL, NULL, NULL);
++        sqlite3_close(db);
++    }
++    if (root_fd != -1) close(root_fd);
++    if (archive != NULL) archive_read_free(archive);
++    return success;
+ }
++
++#undef FILL_ERR
++#define FILL_ERR(_type, _code, _message) do { \
++    err_out->line = __LINE__; \
++    err_out->type = _type; \
++    err_out->code = _code; \
++    err_out->message = strdup(_message); \
++    return false; \
++} while (0)
+ 
+ bool fakefs_export(const char *fs, const char *archive_path, struct fakefsify_error *err_out, struct progress p) {
+     // open the archive

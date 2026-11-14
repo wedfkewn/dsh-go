@@ -1,0 +1,131 @@
+# Compile checks only: no IPA export, no signing, no Secrets access,
+# and no upload of installable products. Artifacts contain logs only.
+name: iOS Check (no codesign)
+
+on:
+  push:
+    branches: [feature/ios-shellbox-dynamic-island]
+  pull_request:
+    # GitHub filters pull requests by their target (base) branch.
+    branches: [feature/ios-shellbox-dynamic-island]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-check:
+    # Manual dispatch must also select this feature branch.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/feature/ios-shellbox-dynamic-island'
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      LOG_DIR: ${{ github.workspace }}/ios-check-logs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26.0.1
+        # iOS 26 SDK required by connectivity_plus; installed on this runner image:
+        # https://github.com/actions/runner-images/blob/macos-15-arm64/20261104.0514/images/macos/macos-15-arm64-Readme.md
+        run: sudo xcode-select --switch /Applications/Xcode_26.0.1.app/Contents/Developer
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Source: tooling/setup-toolchain.sh and .github/workflows/ci.yml.
+          flutter-version: '3.47.7'
+          channel: stable
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p "$LOG_DIR"
+          {
+            uname -sm
+            xcodebuild -version
+            flutter --version
+            # Match runtime/shellbox/build-ios-libs.sh; CocoaPods is for Flutter.
+            brew install llvm lld ninja libarchive meson cocoapods
+            pod --version
+          } 2>&1 | tee "$LOG_DIR/dependencies.log"
+
+      - name: Resolve Flutter dependencies
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get 2>&1 | tee "$LOG_DIR/flutter-pub-get.log"
+
+      - name: Analyze Flutter app
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter analyze 2>&1 | tee "$LOG_DIR/flutter-analyze.log"
+
+      - name: Build ShellBox static libraries
+        run: |
+          set -euo pipefail
+          {
+            # Read the URL, pinned commit and expected checkout path from the manifest.
+            source_url=$(python3 -c 'import json; print(json.load(open("third_party/shellbox/source.json"))["url"])')
+            source_commit=$(python3 -c 'import json; print(json.load(open("third_party/shellbox/source.json"))["commit"])')
+            source_path=$(python3 -c 'import json; print(json.load(open("third_party/shellbox/source.json"))["checkout_path"])')
+            git init "$source_path"
+            git -C "$source_path" fetch --depth=1 "$source_url" "$source_commit"
+            git -C "$source_path" checkout --detach FETCH_HEAD
+            # Actual interface: SOURCE_CHECKOUT OUTPUT_DIRECTORY (outside source).
+            bash runtime/shellbox/build-ios-libs.sh "$source_path" "$RUNNER_TEMP/shellbox-ios-libs"
+          } 2>&1 | tee "$LOG_DIR/shellbox-build.log"
+
+      - name: Generate temporary iOS project if absent
+        working-directory: app
+        run: |
+          set -euo pipefail
+          {
+            if [ ! -d ios ]; then
+              flutter create --platforms=ios .
+            else
+              echo 'Using existing app/ios.'
+            fi
+          } 2>&1 | tee "$LOG_DIR/flutter-create-ios.log"
+
+      - name: Compile iOS without codesigning
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build ios --no-codesign 2>&1 | tee "$LOG_DIR/flutter-build-ios.log"
+
+      - name: Summarize failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          mkdir -p "$LOG_DIR"
+          {
+            echo '::error::iOS check failed. See the first failed step and full log artifact.'
+            echo 'Later build steps are skipped after a failure; missing logs mean the step was not reached.'
+            echo 'If checkout or Flutter setup failed, consult that action log in GitHub.'
+            echo 'ShellBox requires macOS arm64. iOS plugins and native integration remain unverified.'
+            echo 'Node 24 remains UNKNOWN; this workflow does not test Node or DSH execution.'
+            for log in dependencies flutter-pub-get flutter-analyze shellbox-build flutter-create-ios flutter-build-ios; do
+              echo "--- $log ---"
+              if [ -f "$LOG_DIR/$log.log" ]; then
+                tail -n 80 "$LOG_DIR/$log.log"
+              else
+                echo 'No log: step not reached or initialization failed.'
+              fi
+            done
+          } 2>&1 | tee "$LOG_DIR/failure-summary.log"
+
+      - name: Upload check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-check-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/ios-check-logs/*.log
+          if-no-files-found: warn
+          retention-days: 7
