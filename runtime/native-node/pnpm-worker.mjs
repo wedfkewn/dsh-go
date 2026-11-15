@@ -8,6 +8,8 @@
  */
 import {parentPort, workerData} from 'node:worker_threads';
 import Module, {createRequire, enableCompileCache} from 'node:module';
+import {readFile, rm, stat} from 'node:fs/promises';
+import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 const {token, cwd, distPath, argv, env} = workerData;
@@ -72,6 +74,34 @@ try {
     }
     return load.apply(this, arguments);
   };
+}
+
+const writeCommands = new Set([
+  'add', 'install', 'i', 'remove', 'uninstall', 'rm', 'un', 'uni',
+  'update', 'up', 'upgrade', 'dedupe', 'prune',
+]);
+const command = argv.find(arg => !arg.startsWith('-'));
+
+// An iOS app update can move its data container while pnpm's derived
+// node_modules tree still records the old store. Rebuild only that tree when
+// the recorded store is gone; pnpm itself persists package.json and the lock.
+if (writeCommands.has(command)) {
+  const modulesDir = join(cwd, 'node_modules');
+  try {
+    const modules = requireFromPnpm('yaml').parse(
+      await readFile(join(modulesDir, '.modules.yaml'), 'utf8'),
+    );
+    const storeDir = modules?.storeDir;
+    if (typeof storeDir === 'string' && storeDir !== '') {
+      try {
+        await stat(storeDir);
+      } catch (error) {
+        if (error?.code === 'ENOENT') await rm(modulesDir, {recursive: true, force: true});
+      }
+    }
+  } catch {
+    // Missing or unreadable metadata is left for pnpm's normal diagnostics.
+  }
 }
 
 try {

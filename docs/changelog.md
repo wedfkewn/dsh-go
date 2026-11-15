@@ -8,12 +8,14 @@
 
 - **创意工坊完整移植。** 可以从工坊发现、预览和安装宠物与伙伴包，查看已安装、可更新和已撤回的内容，举报条目，并使用 GitHub 设备码登录管理自己的投稿。
 - 投稿补全了来源和资料编辑、预览图与封面、未完成投稿恢复、重复提交保护、审核结果与撤回流程；配套 Worker 同时加入账号身份、审核台、投稿、举报、撤回、公开预览、状态存储和 R2 接口。
+- 修复 iOS App 容器迁移后插件依赖无法安装的问题：旧 pnpm store 已不存在时会自动重建派生的 `node_modules`，同时保留 `package.json`、锁文件和配置。
 - **这是 iOS 未签名包，且没有在真机上验证。** 需要先自行签名才能安装。`go.dshtui.com` 的生产 Worker 是否已经升级到这一版接口、真实 GitHub 登录和 R2 流程是否可用，都没有在本次发布中验证。
 
 ### English
 
 - **Complete Creative Workshop port.** Browse, preview and install pet and companion packs, inspect installed, updatable and withdrawn items, report listings, and sign in with the GitHub device flow to manage your own submissions.
 - Publishing now covers source and metadata editing, preview images and covers, unfinished-submission recovery, duplicate-submit protection, review results and withdrawal. The matching Worker adds account identity, the moderation console, submissions, reports, withdrawals, public previews, state storage and R2 APIs.
+- **Fixes plugin dependency installs after an iOS app container move.** When the recorded pnpm store no longer exists, the app rebuilds the derived `node_modules` tree while preserving `package.json`, the lockfile and configuration.
 - **This is an unsigned iOS build and it was not verified on a device.** It must be signed before installation. This release did not verify whether the production Worker at `go.dshtui.com` has been upgraded to this API, or whether live GitHub sign-in and R2 flows work.
 
 ## 1.0.15 · 2026-11-10
