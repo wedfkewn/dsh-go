@@ -75,6 +75,18 @@ void main() {
       await expectBrandLockup(tester, find.byType(BrandLockup));
     });
 
+    testWidgets('the brand row carries 模式 beside 网页模式, and 酒馆 is one tap away', (tester) async {
+      await _pumpDrawer(tester);
+      final mode = find.byKey(const ValueKey('mode-key'));
+      expect(mode, findsOneWidget);
+      expect(find.byTooltip('切换到网页界面'), findsOneWidget);
+
+      await tester.tap(mode);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('mode-row-tavern')), findsOneWidget);
+      expect(find.text('酒馆'), findsWidgets);
+    });
+
     testWidgets('identity bar: avatar on the 20 line, 全部功能 and 设置 equal, ending on the 10 line', (tester) async {
       await _pumpDrawer(tester);
       final drawer = tester.getRect(find.byType(SessionsDrawer));
