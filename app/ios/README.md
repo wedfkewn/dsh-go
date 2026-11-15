@@ -1,10 +1,17 @@
 # iOS 工程
 
-Flutter 3.47.7，Xcode 26（CI 用 26.6），最低 iOS 15。插件走 Swift Package Manager，这个工程没有 CocoaPods 的 `Podfile`。
+Flutter 3.47.7，最低 iOS 15。插件走 Swift Package Manager，这个工程没有 CocoaPods 的 `Podfile`。本机已在 Xcode 27.2 验证无签名真机构建；`iOS compile` 使用 Xcode 26.6，手动 IPA 工作流使用 Xcode 26.0.1。版本不同不影响工程结构，但签名和导出以实际选择的 Xcode 为准。
 
 ## 在 Mac 上编译
 
-fresh clone 默认编译远程主机版，不需要任何未提交的生成产物。先安装 Flutter 3.47.7 和 Xcode，然后直接运行：
+如果终端提示 `zsh: command not found: flutter` 或进程返回 `Exited with status code 127`，先修工具链，不要改 Xcode 工程。Flutter 不在默认 `PATH` 时，可临时或永久把安装目录加入 `PATH`：
+
+```sh
+export PATH="$HOME/flutter/bin:$PATH"
+flutter --version
+```
+
+然后从仓库根目录执行：
 
 ```sh
 cd app
@@ -13,42 +20,70 @@ flutter build ios --simulator --debug
 flutter build ios --release --no-codesign
 ```
 
-第二条命令生成未签名的真机 Release 包。要安装到真机，仍需在 Xcode 里配置签名。
+最后一条命令只生成未签名的真机 Release 包，不能直接说明 iPhone 可安装。需要本机 Node 引擎时，先运行 `tooling/ios/prepare-engine.sh`；其产物在 `app/ios/Engine/`，不进 git。
 
-要本机引擎时，再准备一次（需要 python3 3.11 以上和网络，几分钟；产物在 `app/ios/Engine/`，不进 git）：
-
-```sh
-tooling/ios/prepare-engine.sh
-```
-
-准备完成后打开工程继续开发：
+开发或查看签名配置时打开 workspace，不要打开 `.xcodeproj`：
 
 ```sh
 cd app
 open ios/Runner.xcworkspace
 ```
 
-第一次要在 Xcode 里给 `Runner` 和 `ShareExtension` 两个 target 都选上 Team（Signing & Capabilities）。两个 target 都用 App Group，开了自动签名时 Xcode 会自己注册。
+`Missing package product 'FlutterGeneratedPluginSwiftPackage'` 通常是把 `Runner.xcodeproj` 当成入口，或还没执行 `flutter pub get`/Flutter 构建生成的 Swift Package 集成。先 `flutter pub get`，再打开 `Runner.xcworkspace`。单纯运行 `flutter build` 时也不要指定 `.xcodeproj`。
 
-免费 Apple 账号（Personal Team）可以先用：每次签名 7 天有效，最多 3 台设备，不能用推送。它能不能注册 App Group 还没实测；不能的话，先在 Xcode 里去掉 `ShareExtension` target 和两份 `.entitlements`，只是少了分享入口。
+### 三个可分发 target
 
-Bundle ID 如果被占用，要一起改三处：两个 target 的 `PRODUCT_BUNDLE_IDENTIFIER`，两份 `.entitlements` 里的 App Group，`ShareExtension/ShareInbox.swift` 的 `group`。扩展的 ID 必须以主应用的 ID 开头。
+当前工程有三个 shippable target，必须使用同一 Team，并为每个 target 准备独立、匹配的 Provisioning Profile：
 
-然后插上手机：
+- `Runner`：`io.github.ccch1mneyyy.dshgo`
+- `ShareExtension`：`io.github.ccch1mneyyy.dshgo.ShareExtension`
+- `PetLiveActivity`：`io.github.ccch1mneyyy.dshgo.PetLiveActivity`
+
+三者都声明同一个 App Group：`group.io.github.ccch1mneyyy.dshgo`。扩展 ID 必须以主 App ID 为前缀。`ShareExtension` 是当前分享入口，`PetLiveActivity` 是当前 Live Activity 组件，不能为了绕过 Personal Team 或签名错误删除它们。
+
+免费 Apple 账号（Personal Team）是否能为该组合注册 App Group 和两个扩展取决于账号与 Apple 当前策略；若不能，该账号不能产出合格的自签 IPA。应改用具备对应 capabilities 的正式开发者团队，而不是删除扩展、权限或后台模式。
+
+首次在 Xcode 中自动签名时，三个 target 都要选择同一 Team，并确认各自 App Group capability 已启用。若任一 target 的 App ID、Profile、Entitlements 或 Team 不一致，安装阶段会失败。
+
+`PetLiveActivity` 还以 folder reference 带着 `app/assets/pets`（构建后位于 `PetLiveActivity.appex/pets/`）。每次状态更新都随 `ContentState.art` 内联一张 App 渲染的小型透明 PNG，所以第三方导入宠物即使 App Group 被剥掉、扩展读不到 App 沙盒，也会显示导入宠物的真实静帧。原生读取顺序是内联 PNG、App Group 暂存的 `<group>/pet-art/<packId>`、appex 自带的 `pets/<packId>`（内置宠物）、emoji。Console 里 `using_bundled_art` 表示走到了 appex 内置图。
+
+### 无签名结构与签名检查
+
+从仓库根目录检查未签名真机产物：
 
 ```sh
-flutter run --release -d <设备>
+python3 tooling/ios/verify-ipa.py --unsigned \
+  app/build/ios/iphoneos/Runner.app
 ```
 
-不签名只看能不能编过，和 CI 一样：
+对已经构建好的 `Runner.app` 按从内到外逐 bundle 重签并生成 IPA：
 
 ```sh
-flutter build ios --simulator --debug
-flutter build ios --release --no-codesign
+tooling/ios/sign-app.sh \
+  --app app/build/ios/iphoneos/Runner.app \
+  --identity "Apple Development: Example (TEAMID)" \
+  --profiles "$HOME/Desktop/dsh-profiles" \
+  --team-id TEAMID \
+  --output "$HOME/Desktop/DSH.ipa"
 ```
 
-分支上的推送也会跑 `iOS compile`。它失败时不用登录也能看原因：Xcode 的报错会列在运行页的 Annotations 里（`tooling/ios/build.sh`）。其中 `engine` 任务在模拟器上真跑引擎：一轮写、改、读、搜、bash 加审批，对着假模型，然后原地停止再启动（`tooling/ios/engine-smoke/`）。
+`--profiles` 目录里必须恰好能匹配上述三个 Bundle ID 的三份 `.mobileprovision`；签名材料不要放进仓库。脚本不使用 `codesign --deep`，而是依次签 Framework、扩展和主 App，再调用 `verify-ipa.py` 检查全部 Mach-O、嵌套关系和签名。手工验 IPA：
 
+```sh
+python3 tooling/ios/verify-ipa.py \
+  --require-profiles --require-native-node --require-engine \
+  --team-id TEAMID --signing-identity TEAMID \
+  "$HOME/Desktop/DSH.ipa"
+```
+
+若当前产物没有本机引擎，去掉 `--require-native-node`/`--require-engine`；正式发布若要求这些组件，就不应去掉。CI 的 `iOS IPA Build` 在未签名构建后和导出 IPA 后都会运行结构门禁。
+
+### 安装失败与运行加载失败要分开
+
+- 安装阶段验签失败：系统还没完成安装。常见日志包括 `MIInstallerErrorDomain`、`ApplicationVerificationFailed`、`0xe8008015`、`0xe8008001`，原因通常是嵌套 Framework/扩展未签、签名 Team 不一致、Profile 不匹配、entitlements/App Group 未授权或证书过期。
+- 安装成功后动态库加载失败：App 已进入启动阶段。常见日志是 `dyld: Library not loaded`、`@rpath` 解析失败、`dlopen` 失败，应检查 Framework 是否在正确的 `Frameworks/` 路径、install name 和 Node/runtime 路径。
+
+没有 iPhone 的安装日志时，只能证明结构和签名材料自洽，不能宣称“无法验证 App 完整性”已在真机上修复。
 ## 引擎 addon 的 framework 布局
 
 两份 addon 由 `build-engine-native.sh` 输出为 `DshFlock.framework/DshFlock` 和 `DshRequireBuiltin.framework/DshRequireBuiltin`，与 `DshNodeHost.framework` 一起嵌入 App 的 `Frameworks/`。iOS 宿主校验与生成 runtime 的 loader 必须使用同一布局；addon 源码、N-API 版本和注册名不因包装改名。升级必须重新准备 runtime，不能把旧 loader 与新 framework 混用。 嵌入脚本会在编译和复制前检查已准备 ZIP 的唯一 loader 成员及两项新路径；旧布局、缺失或损坏时明确失败并要求重跑 `tooling/ios/prepare-engine.sh`，不会自动下载。

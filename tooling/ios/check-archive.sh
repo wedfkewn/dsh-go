@@ -6,6 +6,11 @@
 # Run from the repository root, with the engine prepared. Everything goes up as annotations.
 set -uo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+FLUTTER_BIN="$(bash "$ROOT/tooling/ios/ensure-flutter-ios-project.sh")" || exit $?
+FLUTTER_ROOT="$(cd "$(dirname "$FLUTTER_BIN")/.." && pwd -P)"
+export FLUTTER_ROOT
+
 note() { printf '::notice title=%s::%s\n' "$1" "$(printf '%s' "$2" | tr '\n' ' ' | cut -c1-900)"; }
 fail() { printf '::error title=archive::%s\n' "$(printf '%s' "$1" | tr '\n' ' ' | cut -c1-900)"; failed=1; }
 failed=0
@@ -16,7 +21,7 @@ bash tooling/ios/build-phone-self-runner.sh || { fail 'phone native library prep
 
 archive="$RUNNER_TEMP/Runner.xcarchive"
 log="$(mktemp)"
-(cd app && flutter build ios --release --no-codesign --config-only) >"$log" 2>&1 || {
+(cd "$ROOT/app" && "$FLUTTER_BIN" build ios --release --no-codesign --config-only) >"$log" 2>&1 || {
   tail -20 "$log"
   fail "flutter couldn't write the configuration: $(tail -3 "$log")"
   exit 1

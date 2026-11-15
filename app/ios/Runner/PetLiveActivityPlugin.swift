@@ -4,6 +4,8 @@ import UIKit
 
 final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
   static var instance: PetLiveActivityPlugin?
+  private static let maxInlineArtBytes = 64 * 1024
+  private static let maxContentBytes = 3800
   private static var pendingURL: URL?
   private let channel: FlutterMethodChannel
   private var ready = false
@@ -24,7 +26,7 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
         guard let next = self.backgroundState(host: activity.attributes.host,
           session: activity.attributes.sessionId, original: old) else { continue }
         guard version == self.backgroundVersion else { return }
-        await activity.update(ActivityContent(state: next,
+        await activity.update(ActivityContent(state: Self.fitContent(next),
           staleDate: Date().addingTimeInterval(300)))
       }
     }
@@ -79,8 +81,10 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
     let tier: Int?
     switch phase {
     case "continuedProcessing", "working":
+      // A foreground snapshot can refine only the phase; the exact running
+      // pose and its tier stay valid in either phase.
       petState = Self.runningPetState(original.petState) ?? "working"
-      tier = phase == "continuedProcessing" ? original.tier : nil
+      tier = original.tier
     case "waitingApproval":
       petState = "notification"; tier = nil
     case "completed":
@@ -91,8 +95,15 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
       petState = "idle"; tier = nil
     }
     let staleKey = ["completed", "error", "waitingApproval"].contains(phase) ? key : "Waiting to resume"
+    let completionSeed = phase == "completed" ? original.completionSeed : nil
+    // Background snapshots cannot render a new pose. Keeping the previous
+    // inline still is better than falling back to emoji merely because the
+    // phase changed; the next foreground push replaces it with the right pose.
     let next = PetActivityAttributes.ContentState(packId: original.packId, phase: phase,
-      petState: petState, tier: tier, detail: nil, completionSeed: nil, since: nil,
+      petState: petState, tier: tier, detail: nil, completionSeed: completionSeed, since: nil,
+      art: original.art,
+      artBodyRatio: original.artBodyRatio,
+      artPixelArt: original.artPixelArt,
       label: NSLocalizedString(key, comment: "Background task status"),
       staleLabel: NSLocalizedString(staleKey, comment: "Background task status"))
     return next == original ? nil : next
@@ -103,6 +114,49 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
     guard let petState else { return nil }
     return ["thinking", "working", "juggling", "sweeping", "carrying"].contains(petState)
       ? petState : nil
+  }
+
+  /// StandardMessageCodec carries Dart's `Uint8List` as typed data. Keep the
+  /// ActivityKit state bounded; an oversized or malformed still is dropped
+  /// without losing the status update itself.
+  private static func inlineArt(_ value: Any?) -> Data? {
+    let data: Data?
+    if let typed = value as? FlutterStandardTypedData {
+      data = typed.data
+    } else {
+      data = value as? Data
+    }
+    guard let data, !data.isEmpty, data.count <= maxInlineArtBytes else { return nil }
+    return data
+  }
+
+  /// ActivityKit rejects an oversized ContentState as a whole. When the final
+  /// encoded state does not fit, drop only the inline still so phase, labels
+  /// and timing still update.
+  @available(iOS 16.2, *)
+  private static func contentSize(_ state: PetActivityAttributes.ContentState) -> Int {
+    (try? JSONEncoder().encode(state))?.count ?? Int.max
+  }
+
+  @available(iOS 16.2, *)
+  private static func fitContent(
+    _ original: PetActivityAttributes.ContentState
+  ) -> PetActivityAttributes.ContentState {
+    var state = original
+    var bytes = contentSize(state)
+    guard bytes > maxContentBytes else { return state }
+    let dropped = state.art?.count ?? 0
+    let packId = state.packId ?? "none"
+    state.art = nil
+    state.artBodyRatio = nil
+    state.artPixelArt = nil
+    bytes = contentSize(state)
+    // A dropped still would become the widget's emoji fallback on a build
+    // without the App Group. Make that boundary visible in Console instead of
+    // silently degrading a valid imported pet.
+    NSLog("pet live activity: inline art dropped for %@ (%ld bytes, png %ld bytes; state now %ld bytes)",
+      packId, contentSize(original), dropped, bytes)
+    return state
   }
 
   deinit { NotificationCenter.default.removeObserver(self) }
@@ -213,9 +267,20 @@ final class PetLiveActivityPlugin: NSObject, FlutterPlugin {
           $0.count == 8 ? $0 : nil
         }
         let since = (args["since"] as? NSNumber).map { $0.intValue }
-        let state = PetActivityAttributes.ContentState(packId: args["packId"] as? String,
+        let artRatio: Double? = (args["artBodyRatio"] as? NSNumber).flatMap { number in
+          let ratio = number.doubleValue
+          // The renderer may legitimately produce a very wide or tall action
+          // window. Accept any finite positive ratio here and clamp only where
+          // it is displayed, rather than discarding the inline still itself.
+          return ratio.isFinite && ratio > 0 ? ratio : nil
+        }
+        let art = artRatio == nil ? nil : Self.inlineArt(args["art"])
+        let state = Self.fitContent(PetActivityAttributes.ContentState(packId: args["packId"] as? String,
           phase: phase, petState: petState, tier: tier, detail: detail,
-          completionSeed: seed, since: since, label: label, staleLabel: staleLabel)
+          completionSeed: seed, since: since, art: art,
+          artBodyRatio: art == nil ? nil : artRatio,
+          artPixelArt: art == nil ? nil : args["artPixelArt"] as? Bool,
+          label: label, staleLabel: staleLabel))
         // A suspended Dart process cannot promise fresh status indefinitely.
         // A local idle pet has no session status that can become stale.
         let content = ActivityContent(state: state, staleDate: host == "local-pet" ? nil : Date().addingTimeInterval(300))

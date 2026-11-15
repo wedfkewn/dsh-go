@@ -1,10 +1,11 @@
 // The chosen pet's cells, copied where the widget extension can read them.
-// An extension gets neither the app's asset bundle nor its sandbox, so the
-// Live Activity would have only an emoji; instead the app writes the pack
-// (`pack.json` plus the sheets it names, verbatim) into the App Group folder
-// `PetArtStore` names (PetActivityAttributes.swift), and the widget crops the
-// very cells the app draws. `stamp` lets the widget tell a new pack from a
-// re-imported one.
+// An extension gets neither the app's asset bundle nor its sandbox, so the app
+// writes the pack (`pack.json` plus the sheets it names, verbatim) into the
+// App Group folder `PetArtStore` names (PetActivityAttributes.swift), and the
+// widget crops the very cells the app draws. The app also sends a small inline
+// still with each update, so this staging copy is an optimization and the
+// fallback for older activities, not a requirement. `stamp` lets the widget
+// tell a new pack from a re-imported one.
 
 import 'dart:io';
 
@@ -20,8 +21,8 @@ class PetArtStage {
   final MethodChannel channel;
   final AssetBundle bundle;
 
-  /// The shared folder; null when this build has no App Group (the island
-  /// keeps its emoji).
+  /// The shared folder; null when this build has no App Group. That is not
+  /// fatal: the update also carries an inline still rendered by the app.
   Future<String?>? _base;
 
   /// Why the last copy could not be made, as a fixed code (`app_group_unavailable`,

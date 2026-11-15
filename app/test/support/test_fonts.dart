@@ -48,11 +48,31 @@ Future<void> loadTestFonts() async {
     'assets/fonts/JetBrainsMono-Bold.ttf',
     'assets/fonts/JetBrainsMono-Italic.ttf',
   ]);
-  final fontDir = Platform.environment['DSH_TEST_FONT_DIR'] ?? '/usr/share/fonts/noto-cjk';
-  final cjk = ['$fontDir/NotoSansCJK-Regular.ttc', '$fontDir/NotoSansCJK-Bold.ttc'];
+  final fontDir = Platform.environment['DSH_TEST_FONT_DIR'];
+  final candidates = fontDir != null
+      ? ['$fontDir/NotoSansCJK-Light.ttc', '$fontDir/NotoSansCJK-Regular.ttc', '$fontDir/NotoSansCJK-Bold.ttc']
+      : [
+          // Linux / CI layout.
+          '/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc',
+          '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+          '/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc',
+          // Per-user macOS Noto Sans CJK installation.
+          '${Platform.environment['HOME']}/Library/Fonts/NotoSansCJKsc-Light.otf',
+          '${Platform.environment['HOME']}/Library/Fonts/NotoSansCJKsc-Regular.otf',
+          '${Platform.environment['HOME']}/Library/Fonts/NotoSansCJKsc-Bold.otf',
+        ];
+  final existing = candidates.map(File.new).where((file) => file.existsSync()).map((file) => file.path).toList();
+  if (existing.isEmpty) {
+    throw StateError('Test fonts missing; tried: ${candidates.join(', ')}');
+  }
   // The display sizes are w300: the light face, as on ROMs whose system sans
-  // has one.
-  final sans = ['$fontDir/NotoSansCJK-Light.ttc', ...cjk];
+  // has one. Prefer the complete Light/Regular/Bold set; accept a macOS
+  // user-font subset without demanding a Linux-only filename.
+  final cjk = existing.where((path) => !path.contains('Light')).toList();
+  final sans = [
+    if (existing.any((path) => path.contains('Light'))) existing.firstWhere((path) => path.contains('Light')),
+    ...cjk,
+  ];
   await family(sansFamily, sans);
   await family(cjkFamily, sans);
   // `AppType.mono` falls back through `monospace` and `Noto Sans Mono CJK SC`

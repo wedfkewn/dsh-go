@@ -36,6 +36,20 @@ LivePush push({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('re-importing the same pack id changes the push identity', () {
+    final activity = push(packId: 'imported-whale').activity;
+    final firstPack = Object();
+    final secondPack = Object();
+    final first = LivePush(enabled: true, packId: 'imported-whale', packToken: firstPack, activity: activity);
+    final same = LivePush(enabled: true, packId: 'imported-whale', packToken: firstPack, activity: activity);
+    final reimported = LivePush(enabled: true, packId: 'imported-whale', packToken: secondPack, activity: activity);
+
+    expect(first, same);
+    expect(first.hashCode, same.hashCode);
+    expect(reimported, isNot(first));
+    expect(first.hashCode, isNot(reimported.hashCode));
+  });
+
   test('six presentation phases preserve reducer projection and privacy', () {
     final cases = [
       (push(packId: 'deepy-whale', mood: PetStateName.idle), 'idle', 'idle'),
@@ -209,6 +223,85 @@ void main() {
     expect(calls.map((c) => c.method), ['start', 'update', 'start', 'start', 'update', 'end']);
     expect((calls[3].arguments as Map)['phase'], 'idle');
     expect((calls[4].arguments as Map)['packId'], 'whale-girl');
+  });
+
+  test('an inline still travels with the state and keeps its render hints', () async {
+    MethodCall? sent;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      sent = call;
+      return call.method;
+    });
+    const png = [137, 80, 78, 71];
+    final art = PetLiveActivityArt(png: Uint8List.fromList(png), bodyRatio: 1.25, pixelArt: true);
+    final bridge = PetLiveActivityChannel(channel: channel);
+    expect(await bridge.push(push(packId: 'imported-whale'), artLoader: () async => art), 'start');
+
+    final arguments = sent!.arguments as Map;
+    expect(arguments['packId'], 'imported-whale');
+    expect(arguments['art'], png);
+    expect(arguments['artBodyRatio'], 1.25);
+    expect(arguments['artPixelArt'], isTrue);
+  });
+
+  test('without a still the native state keeps its old shape', () async {
+    MethodCall? sent;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      sent = call;
+      return call.method;
+    });
+    final bridge = PetLiveActivityChannel(channel: channel);
+    await bridge.push(push(packId: 'deepy-whale'), artLoader: () async => null);
+
+    final arguments = sent!.arguments as Map;
+    expect(arguments.containsKey('art'), isFalse);
+    expect(arguments.containsKey('artBodyRatio'), isFalse);
+    expect(arguments.containsKey('artPixelArt'), isFalse);
+  });
+
+  test('a slow still stays ordered with later phases', () async {
+    final rendering = Completer<void>();
+    final release = Completer<void>();
+    final calls = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call.method);
+      return call.method;
+    });
+    final bridge = PetLiveActivityChannel(channel: channel);
+    Future<PetLiveActivityArt?> loadArt() async {
+      rendering.complete();
+      await release.future;
+      return PetLiveActivityArt(png: Uint8List.fromList([137, 80, 78, 71]), bodyRatio: 1, pixelArt: true);
+    }
+
+    final first = bridge.push(push(packId: 'deepy-whale'), artLoader: loadArt);
+    await rendering.future;
+    final second = bridge.push(
+      push(packId: 'deepy-whale', mood: PetStateName.working),
+      artLoader: () async => null,
+    );
+    expect(calls, isEmpty);
+    release.complete();
+    await Future.wait([first, second]);
+    // The second pose cannot overtake the still for the first pose.
+    expect(calls, ['start', 'update']);
+  });
+
+  test('a broken still still sends the phase and label', () async {
+    MethodCall? sent;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      sent = call;
+      return call.method;
+    });
+    final bridge = PetLiveActivityChannel(channel: channel);
+    await expectLater(
+      bridge.push(push(packId: 'imported-whale'), artLoader: () async => throw const FormatException('bad sheet')),
+      completion('start'),
+    );
+
+    final arguments = sent!.arguments as Map;
+    expect(arguments['phase'], 'thinking');
+    expect(arguments['label'], 'Status');
+    expect(arguments.containsKey('art'), isFalse);
   });
 
   test('native failure is observable and does not poison subsequent operations', () async {

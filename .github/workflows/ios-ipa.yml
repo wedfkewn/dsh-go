@@ -1,8 +1,30 @@
 # Manual only. Unsigned build must pass before any signing Secrets are used.
+#
+# Bundle IDs are read from the project, never hard-coded here: Runner,
+# Runner.ShareExtension and Runner.PetLiveActivity. Each needs its own
+# provisioning profile, and all three declare the same App Group
+# (group.io.github.ccch1mneyyy.dshgo), so a profile that lacks it cannot sign.
 name: iOS IPA Build
 
 on:
   workflow_dispatch:
+    inputs:
+      native_node_payload_url:
+        description: "本机 Node 引擎 payload（含 opt/dsh 与 usr/local/lib/node_modules/pnpm 的 tar）URL"
+        required: false
+        default: ""
+      node_mobile_zip_url:
+        description: "可选：NodeMobile zip 覆盖地址；留空使用 runtime/native-node/prepare-ios.sh 的固定版本"
+        required: false
+        default: ""
+      require_native_node:
+        description: "缺少 NativeNode 时构建失败。只做远程主机包时请显式取消勾选。"
+        type: boolean
+        default: true
+      prepare_engine:
+        description: "运行 tooling/ios/prepare-engine.sh 并嵌入 DSH 引擎 framework（耗时较长）"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -10,7 +32,7 @@ permissions:
 jobs:
   ios-ipa:
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
@@ -74,6 +96,50 @@ jobs:
             bash runtime/shellbox/build-ios-libs.sh "$source_path" "$RUNNER_TEMP/shellbox-ios-libs"
           } 2>&1 | tee "$LOG_DIR/shellbox-build.log"
 
+      - name: Prepare native Node payload
+        id: native_node
+        env:
+          PAYLOAD_URL: ${{ inputs.native_node_payload_url }}
+          NODE_MOBILE_URL: ${{ inputs.node_mobile_zip_url }}
+          REQUIRE: ${{ inputs.require_native_node }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PAYLOAD_URL" ]; then
+            if [ "$REQUIRE" = "true" ]; then
+              {
+                echo '::error title=NativeNode::未提供 native_node_payload_url。'
+                echo '本仓库的 IPA 必须带本机 Node 引擎；要构建仅远程主机的包，'
+                echo '请重新运行并在 workflow_dispatch 里取消 require_native_node 勾选。'
+              } | tee "$LOG_DIR/native-node.txt"
+              exit 1
+            fi
+            echo 'note: 未提供 payload，按要求构建仅远程主机版本（无 NodeMobile.framework）。' \
+              | tee "$LOG_DIR/native-node.txt"
+            echo 'prepared=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            curl -fsSL --retry 3 "$PAYLOAD_URL" -o "$RUNNER_TEMP/native-node-payload.tar"
+            if [ -n "$NODE_MOBILE_URL" ]; then
+              curl -fsSL --retry 3 "$NODE_MOBILE_URL" -o "$RUNNER_TEMP/native-node-mobile.zip"
+              bash runtime/native-node/prepare-ios.sh "$RUNNER_TEMP/native-node-payload.tar" \
+                "$RUNNER_TEMP/native-node-mobile.zip"
+            else
+              bash runtime/native-node/prepare-ios.sh "$RUNNER_TEMP/native-node-payload.tar"
+            fi
+            test -d app/ios/NativeNodeArtifacts/NodeMobile.xcframework
+            test -d app/ios/NativeNodeArtifacts/engine
+            test -f app/ios/NativeNodeArtifacts/engine/supervisor.mjs
+          } 2>&1 | tee "$LOG_DIR/native-node.txt"
+          echo 'prepared=true' >> "$GITHUB_OUTPUT"
+
+      - name: Prepare DSH engine
+        if: inputs.prepare_engine == true
+        run: |
+          set -euo pipefail
+          bash tooling/ios/prepare-engine.sh 2>&1 | tee "$LOG_DIR/prepare-engine.log"
+          ls -la app/ios/Engine | tee -a "$LOG_DIR/prepare-engine.log"
+
       - name: Generate temporary iOS project if absent
         working-directory: app
         run: |
@@ -91,6 +157,23 @@ jobs:
         run: |
           set -euo pipefail
           flutter build ios --no-codesign 2>&1 | tee "$LOG_DIR/flutter-build-ios.log"
+
+      - name: Verify unsigned app structure
+        working-directory: app
+        env:
+          NATIVE_NODE: ${{ steps.native_node.outputs.prepared }}
+        run: |
+          set -euo pipefail
+          app="build/ios/iphoneos/Runner.app"
+          test -d "$app"
+          args=(--unsigned --require-native-node)
+          if [ "$NATIVE_NODE" != "true" ]; then
+            args=(--unsigned)
+          fi
+          if [ "${{ inputs.prepare_engine }}" = "true" ]; then
+            args+=("--require-engine")
+          fi
+          python3 ../tooling/ios/verify-ipa.py "${args[@]}" "$app" 2>&1 | tee "$LOG_DIR/verify-unsigned.log"
 
       - name: Optional signing and IPA export
         id: signing
@@ -152,16 +235,40 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -k "$keychain_password" "$keychain" >/dev/null
 
+          # Bundle IDs come from the real targets, so the workflow cannot drift
+          # from the project again (PhoneRunner build settings exist without a
+          # target, and test bundles are never embedded in a Release archive).
+          ruby - <<'RUBY_TARGETS'
+          require 'json'
+          require 'xcodeproj'
+          project = Xcodeproj::Project.open('ios/Runner.xcodeproj')
+          shippable = %w[com.apple.product-type.application com.apple.product-type.app-extension]
+          bundles = project.targets.select { |t| shippable.include?(t.product_type) }.map do |target|
+            ids = target.build_configurations.map do |config|
+              config.build_settings['PRODUCT_BUNDLE_IDENTIFIER']
+            end.compact.uniq
+            raise "#{target.name} has inconsistent bundle IDs: #{ids}" unless ids.size == 1
+            ids.first
+          end.sort
+          raise 'no shippable targets found' if bundles.empty?
+          File.write(File.join(ENV.fetch('SIGNING_DIR'), 'targets.json'), JSON.dump(bundles))
+          puts "Signing targets: #{bundles.join(', ')}"
+          RUBY_TARGETS
+
+          # Every embedded target needs its own profile with the shared App Group.
           python3 - <<'PY_PROFILES'
-          import base64, json, os, pathlib, plistlib, subprocess
+          import base64, datetime, json, os, pathlib, plistlib, subprocess
           root = pathlib.Path(os.environ['SIGNING_DIR'])
           profiles = json.loads(os.environ['IOS_PROFILES_BASE64_JSON'])
-          bundles = ['io.github.ccch1mneyyy.dshApp',
-                     'io.github.ccch1mneyyy.dshApp.PetLiveActivity']
+          bundles = json.loads((root / 'targets.json').read_text())
           if set(profiles) != set(bundles):
-              raise ValueError('Profiles must cover exactly Runner and PetLiveActivity bundle IDs')
+              raise ValueError(
+                  'Profile keys must equal the signed target bundle IDs.\n'
+                  f'  targets:  {sorted(bundles)}\n'
+                  f'  profiles: {sorted(profiles)}')
           destination = pathlib.Path.home() / 'Library/Developer/Xcode/UserData/Provisioning Profiles'
           destination.mkdir(parents=True, exist_ok=True)
+          team = os.environ['IOS_TEAM_ID']
           mapping = {}
           for index, bundle in enumerate(bundles):
               raw = base64.b64decode(profiles[bundle], validate=True)
@@ -169,8 +276,23 @@ jobs:
               temp.write_bytes(raw)
               decoded = subprocess.check_output(['security', 'cms', '-D', '-i', str(temp)])
               profile = plistlib.loads(decoded)
-              if os.environ['IOS_TEAM_ID'] not in profile['TeamIdentifier']:
-                  raise ValueError('Profile team does not match IOS_TEAM_ID')
+              entitlements = profile.get('Entitlements', {})
+              app_id = entitlements.get('application-identifier', '')
+              expected = f'{team}.{bundle}'
+              if profile.get('TeamIdentifier') and team not in profile['TeamIdentifier']:
+                  raise ValueError(f'Profile for {bundle} belongs to another team')
+              if app_id != expected:
+                  raise ValueError(f'Profile for {bundle} authorizes {app_id!r}, not {expected!r}')
+              groups = entitlements.get('com.apple.security.application-groups', [])
+              if 'group.io.github.ccch1mneyyy.dshgo' not in groups:
+                  raise ValueError(f'Profile for {bundle} is missing the DSH App Group')
+              expiry = profile.get('ExpirationDate')
+              if not isinstance(expiry, datetime.datetime) or expiry <= datetime.datetime.now(expiry.tzinfo):
+                  raise ValueError(f'Profile for {bundle} is expired')
+              if os.environ['IOS_EXPORT_METHOD'] in ('development', 'ad-hoc'):
+                  devices = profile.get('ProvisionedDevices') or []
+                  if not devices:
+                      raise ValueError(f'Profile for {bundle} has no provisioned devices')
               installed = destination / (profile['UUID'] + '.mobileprovision')
               if installed.exists():
                   raise ValueError('Refusing to overwrite an existing provisioning profile')
@@ -179,7 +301,7 @@ jobs:
               mapping[bundle] = profile['UUID']
           (root / 'profiles.json').write_text(json.dumps(mapping))
           options = dict(method=os.environ['IOS_EXPORT_METHOD'],
-                         teamID=os.environ['IOS_TEAM_ID'], signingStyle='manual',
+                         teamID=team, signingStyle='manual',
                          signingCertificate=os.environ['IOS_SIGNING_IDENTITY'],
                          provisioningProfiles=mapping)
           with (root / 'ExportOptions.plist').open('wb') as output:
@@ -192,11 +314,13 @@ jobs:
           require 'xcodeproj'
           profiles = JSON.parse(File.read(File.join(ENV.fetch('SIGNING_DIR'), 'profiles.json')))
           project = Xcodeproj::Project.open('ios/Runner.xcodeproj')
-          project.targets.each do |target|
-            next unless ['Runner', 'PetLiveActivity'].include?(target.name)
+          shippable = %w[com.apple.product-type.application com.apple.product-type.app-extension]
+          project.targets.select { |t| shippable.include?(t.product_type) }.each do |target|
             target.build_configurations.each do |config|
               bundle = config.build_settings.fetch('PRODUCT_BUNDLE_IDENTIFIER')
+              raise "No profile for #{bundle}" unless profiles.key?(bundle)
               config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
+              config.build_settings['DEVELOPMENT_TEAM'] = ENV.fetch('IOS_TEAM_ID')
               config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = profiles.fetch(bundle)
             end
           end
@@ -213,6 +337,25 @@ jobs:
             -exportOptionsPlist "$signing_dir/ExportOptions.plist" \
             -exportPath "$RUNNER_TEMP/ios-ipa"
           echo 'exported=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify signed IPA
+        if: steps.signing.outputs.exported == 'true'
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_SIGNING_IDENTITY: ${{ secrets.IOS_SIGNING_IDENTITY }}
+          NATIVE_NODE: ${{ steps.native_node.outputs.prepared }}
+        run: |
+          set -euo pipefail
+          ipa=$(find "$RUNNER_TEMP/ios-ipa" -maxdepth 1 -name '*.ipa' -print -quit)
+          test -n "$ipa"
+          args=(--require-profiles --team-id "$IOS_TEAM_ID" --signing-identity "$IOS_SIGNING_IDENTITY")
+          if [ "$NATIVE_NODE" = "true" ]; then
+            args+=(--require-native-node)
+          fi
+          if [ "${{ inputs.prepare_engine }}" = "true" ]; then
+            args+=(--require-engine)
+          fi
+          python3 tooling/ios/verify-ipa.py "${args[@]}" "$ipa" 2>&1 | tee "$LOG_DIR/verify-ipa.log"
 
       - name: Upload IPA
         if: steps.signing.outputs.exported == 'true'

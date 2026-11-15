@@ -51,6 +51,9 @@ if sys.argv[1]:
 if not re.fullmatch(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+', sys.argv[2]):
     sys.exit('Invalid app bundle identifier.')
 PY
+FLUTTER_BIN="$(bash "$ROOT/tooling/ios/ensure-flutter-ios-project.sh")" || exit $?
+FLUTTER_ROOT="$(cd "$(dirname "$FLUTTER_BIN")/.." && pwd -P)"
+export FLUTTER_ROOT
 umask 077
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/dsh-phone-runner.XXXXXX")"
 cleanup() {
@@ -60,7 +63,7 @@ cleanup() {
   esac
 }
 trap cleanup EXIT
-ARGS=(build-for-testing -project "$ROOT/app/ios/Runner.xcodeproj" -scheme PhoneRunner
+ARGS=(build-for-testing -workspace "$ROOT/app/ios/Runner.xcworkspace" -scheme PhoneRunner
   -destination "id=$DEVICE" -derivedDataPath "$WORK" -allowProvisioningUpdates
   "CODE_SIGN_ENTITLEMENTS=PhoneRunner/PhoneRunnerSelf.entitlements"
   "PRODUCT_BUNDLE_IDENTIFIER=$APP_BUNDLE.PhoneRunner")

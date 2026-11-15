@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../notify/live_activity.dart';
 import '../notify/pet_art_stage.dart';
 import '../notify/pet_live_activity.dart';
+import '../notify/pet_live_activity_art.dart';
 import '../pets/pet_overlay_actions.dart' show petActionHost;
 import '../pets/pet_signals.dart';
 import '../pets/pet_state.dart';
@@ -41,9 +42,15 @@ final liveActivityProvider = Provider<LiveActivity?>((ref) {
 /// activity and the pet whose pictures it uses.
 final livePushProvider = Provider<LivePush>((ref) {
   final enabled = ref.watch(notifyPrefsProvider.select((p) => p.enabled && p.live));
+  final packId = ref.watch(petStateProvider.select((s) => s.packId == noPetId ? null : s.packId));
+  // Watch the loaded pack itself, not only its id: reinstalling a pet can keep
+  // the id while replacing every sheet. The identity token makes that a new
+  // push even when the activity and pose are unchanged.
+  final packToken = packId == null ? null : ref.watch(petPackProvider(packId)).value;
   return LivePush(
     enabled: enabled,
-    packId: ref.watch(petStateProvider.select((s) => s.packId == noPetId ? null : s.packId)),
+    packId: packId,
+    packToken: packToken,
     activity: enabled ? ref.watch(liveActivityProvider) : null,
   );
 });
@@ -81,8 +88,9 @@ class PetLiveActivityStatus extends Notifier<AsyncValue<String?>> {
 final petLiveActivityChannelProvider = Provider<PetLiveActivityChannel>((ref) => PetLiveActivityChannel());
 
 /// The widget extension cannot read Flutter's asset bundle or the app's
-/// sandbox. Keep the selected pack's real sheets in the shared App Group
-/// before each Live Activity update so the island draws the same pet.
+/// sandbox. Stage the sheets in the App Group when possible, and also send a
+/// small inline still so imported pets survive builds where the App Group is
+/// stripped from a sideloaded app.
 final petArtStageProvider = Provider<PetArtStage>(
   (ref) => PetArtStage(
     channel: ref.watch(petLiveActivityChannelProvider).channel,
@@ -92,29 +100,37 @@ final petArtStageProvider = Provider<PetArtStage>(
 
 final iosPetLiveActivityBridgeProvider = Provider<void>((ref) {
   final bridge = ref.watch(petLiveActivityChannelProvider);
-  // The last art-copy failure said out loud, so a broken App Group or a bad
-  // pack is a diagnosis instead of a pet that quietly stays an emoji.
+  final bundle = ref.watch(petAssetBundleProvider);
+  // The last staging failure said out loud. It is no longer fatal: the inline
+  // still is read from the app's own pack before the native update.
   String? stagedFailure;
-  Future<void> send(LivePush push) async {
+
+  Future<PetLiveActivityArt?> inlineArt(LivePush push) async {
     final packId = push.packId;
-    if (push.enabled && packId != null) {
-      // Art staging is best-effort: a missing App Group keeps the old emoji
-      // fallback, but must never stop the status update itself.
-      await AsyncValue.guard(() async {
-        final pack = await ref.read(petPackProvider(packId).future);
-        final stage = ref.read(petArtStageProvider);
-        await stage.stage(pack);
-        if (stage.failure != stagedFailure) {
-          stagedFailure = stage.failure;
-          debugPrint(
-            stage.failure == null
-                ? 'pet art: $packId staged for the island'
-                : 'pet art: $packId not staged (${stage.failure}); the island draws a placeholder',
-          );
-        }
-      });
+    if (!push.enabled || packId == null || packId == noPetId) return null;
+    try {
+      final pack = await ref.read(petPackProvider(packId).future);
+      final stage = ref.read(petArtStageProvider);
+      await stage.stage(pack);
+      if (stage.failure != stagedFailure) {
+        stagedFailure = stage.failure;
+        debugPrint(
+          stage.failure == null
+              ? 'pet art: $packId staged for the island'
+              : 'pet art: $packId not staged (${stage.failure}); using the inline still',
+        );
+      }
+      return await renderPetLiveActivityArt(pack, push, bundle: bundle);
+    } catch (error) {
+      // Art is decoration: a broken pack or unavailable staging area must not
+      // stop the status update itself.
+      debugPrint('pet art: $packId inline still unavailable ($error)');
+      return null;
     }
-    final status = await AsyncValue.guard(() => bridge.push(push));
+  }
+
+  Future<void> send(LivePush push) async {
+    final status = await AsyncValue.guard(() => bridge.push(push, artLoader: () => inlineArt(push)));
     if (ref.mounted) ref.read(petLiveActivityStatusProvider.notifier).report(status);
   }
 

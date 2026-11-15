@@ -178,20 +178,33 @@ class NotifyAction {
 /// it shows, and what the agent does ([LiveActivity]; null: nothing).
 @immutable
 class LivePush {
-  const LivePush({required this.enabled, this.packId, this.activity});
+  const LivePush({required this.enabled, this.packId, this.packToken, this.activity});
 
   final bool enabled;
   final String? packId;
+
+  /// Identity of the loaded pack, not its id. Re-importing a pet with the same
+  /// id changes this token, so the Live Activity must redraw even when the
+  /// phase and pose are otherwise equal. It is local-only and never sent to
+  /// native code.
+  final Object? packToken;
   final LiveActivity? activity;
 
   Map<String, Object?> toMap() => {'enabled': enabled, 'packId': ?packId, 'activity': ?activity?.toMap()};
 
   @override
   bool operator ==(Object other) =>
-      other is LivePush && other.enabled == enabled && other.packId == packId && other.activity == activity;
+      other is LivePush &&
+      other.enabled == enabled &&
+      other.packId == packId &&
+      identical(other.packToken, packToken) &&
+      other.activity == activity;
 
   @override
-  int get hashCode => Object.hash(enabled, packId, activity);
+  int get hashCode {
+    final token = packToken;
+    return Object.hash(enabled, packId, token == null ? 0 : identityHashCode(token), activity);
+  }
 }
 
 /// What the phone offers the live activity.

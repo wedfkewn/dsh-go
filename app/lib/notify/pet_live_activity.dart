@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/l10n.dart';
@@ -89,6 +90,20 @@ String completionSeed(LiveActivity activity) {
   return hash.toRadixString(16).padLeft(8, '0');
 }
 
+/// A small transparent still the app rendered for this exact Live Activity
+/// pose. Sending it with [PetActivityAttributes.ContentState] means an imported
+/// pet does not need an App Group folder the widget extension can read.
+class PetLiveActivityArt {
+  const PetLiveActivityArt({required this.png, required this.bodyRatio, required this.pixelArt});
+
+  final Uint8List png;
+
+  /// Window height divided by the pack's body (`contentBox`) height. Native
+  /// scales the image so the body keeps the same size while action props fit.
+  final double bodyRatio;
+  final bool pixelArt;
+}
+
 class PetLiveActivityChannel {
   PetLiveActivityChannel({MethodChannel? channel}) : channel = channel ?? const MethodChannel('dsh/pet_live_activity');
 
@@ -97,11 +112,29 @@ class PetLiveActivityChannel {
   String? _target;
 
   /// Serialize mutations so a slow request cannot overtake a newer end/update.
-  Future<String?> push(LivePush push) {
+  /// [artLoader] runs inside that same queue: a slow still for an old pose can
+  /// never be attached to a newer activity update.
+  Future<String?> push(LivePush push, {Future<PetLiveActivityArt?> Function()? artLoader}) {
     final completer = Completer<String?>();
     _tail = _tail.then((_) async {
       try {
         final payload = petLiveActivityPayload(push);
+        PetLiveActivityArt? art;
+        if (payload != null && artLoader != null) {
+          try {
+            art = await artLoader();
+          } catch (error) {
+            // The still is decoration. A pack that cannot be rendered must not
+            // suppress the phase, label or timer the person is waiting for.
+            debugPrint('pet live activity: inline still unavailable ($error)');
+          }
+        }
+        final arguments = payload == null
+            ? null
+            : <String, Object?>{
+                ...payload,
+                if (art != null) ...{'art': art.png, 'artBodyRatio': art.bodyRatio, 'artPixelArt': art.pixelArt},
+              };
         final key = payload == null ? null : '${payload['host']}\u0000${payload['sessionId']}';
         final result = await channel.invokeMethod<String>(
           payload == null
@@ -109,7 +142,7 @@ class PetLiveActivityChannel {
               : key == _target
               ? 'update'
               : 'start',
-          payload,
+          arguments,
         );
         _target = key;
         completer.complete(result);

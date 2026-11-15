@@ -5,6 +5,9 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+FLUTTER_BIN="$(bash "$ROOT/tooling/ios/ensure-flutter-ios-project.sh")" || exit $?
+FLUTTER_ROOT="$(cd "$(dirname "$FLUTTER_BIN")/.." && pwd -P)"
+export FLUTTER_ROOT
 # The library ships with the iOS app; sensitive capabilities are disabled until
 # the user enables them in the app. This does not install an XCTest runner.
 if ! bash "$ROOT/tooling/ios/build-phone-self-runner.sh"; then
@@ -13,7 +16,7 @@ if ! bash "$ROOT/tooling/ios/build-phone-self-runner.sh"; then
 fi
 
 log="$(mktemp)"
-flutter build ios "$@" 2>&1 | tee "$log"
+"$FLUTTER_BIN" build ios "$@" 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 if [ "$status" -ne 0 ]; then
   # Flutter prints Xcode's message with its file on the line after.

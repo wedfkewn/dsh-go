@@ -102,6 +102,13 @@ jobs:
         working-directory: app
         run: bash ../tooling/ios/build.sh --release --no-codesign
 
+      - name: Verify the unsigned device app layout
+        working-directory: app
+        run: |
+          # Catch bare .so/.dylib files, misplaced Mach-O code, missing
+          # frameworks and missing app extensions before an IPA is exported.
+          python3 ../tooling/ios/verify-ipa.py --unsigned build/ios/iphoneos/Runner.app
+
   engine:
     runs-on: macos-26
     timeout-minutes: 120

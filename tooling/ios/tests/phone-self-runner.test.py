@@ -67,6 +67,26 @@ class PhoneBuildContracts(unittest.TestCase):
 
 
 class PhoneSetupScript(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.generated_paths = [
+            ROOT / 'app/ios/Flutter/Generated.xcconfig',
+            ROOT / 'app/ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift',
+        ]
+        cls.generated_originals = {
+            path: path.read_bytes() if path.exists() else None for path in cls.generated_paths
+        }
+
+    @classmethod
+    def tearDownClass(cls):
+        for path, contents in cls.generated_originals.items():
+            if contents is None:
+                if path.exists():
+                    path.unlink()
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(contents)
+
     def run_setup(self, valid):
         with tempfile.TemporaryDirectory(prefix='phone-setup-') as temporary:
             base = Path(temporary)
@@ -74,15 +94,33 @@ class PhoneSetupScript(unittest.TestCase):
             binaries.mkdir()
             (base / 'temporary builds').mkdir()
             (binaries / 'uname').write_text('#!/bin/sh\nprintf "Darwin\\n"\n')
-            recorder = '''#!/usr/bin/env python3
-import json, os, pathlib, sys
+            recorder = '''#!/bin/sh
+name="$(basename "$0")"
+python3 - "$name" "$@" <<'PY'
+import json, os, sys
+name = sys.argv[1]
 with open(os.environ['PHONE_SETUP_LOG'], 'a') as stream:
-    stream.write(json.dumps([pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]) + '\\n')
-if pathlib.Path(sys.argv[0]).name == 'xcodebuild':
-    derived = pathlib.Path(sys.argv[sys.argv.index('-derivedDataPath') + 1])
-    (derived / 'Build/Products/Debug-iphoneos/PhoneRunnerUITests-Runner.app').mkdir(parents=True)
+    stream.write(json.dumps([name, *sys.argv[2:]]) + '\\n')
+PY
+if [ "$name" = flutter ]; then
+  if [ "$*" = "pub get" ]; then
+    printf 'FLUTTER_ROOT=synthetic\\n' > ios/Flutter/Generated.xcconfig
+  elif [ "$*" = "build ios --config-only --no-pub" ]; then
+    :
+  else
+    exit 2
+  fi
+  mkdir -p ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage
+  printf '// synthetic package\\n' > ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift
+elif [ "$name" = xcodebuild ]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = -derivedDataPath ]; then derived="$2"; break; fi
+    shift
+  done
+  mkdir -p "$derived/Build/Products/Debug-iphoneos/PhoneRunnerUITests-Runner.app"
+fi
 '''
-            for name in ['xcodebuild', 'xcrun']:
+            for name in ['flutter', 'xcodebuild', 'xcrun']:
                 (binaries / name).write_text(recorder)
             for path in binaries.iterdir():
                 path.chmod(0o755)
@@ -102,20 +140,39 @@ if pathlib.Path(sys.argv[0]).name == 'xcodebuild':
     def test_explicit_setup_builds_and_installs_without_issuing_phone_actions(self):
         result, calls = self.run_setup(valid=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(calls[0][0:2], ['xcodebuild', 'build-for-testing'])
-        self.assertIn('CODE_SIGN_ENTITLEMENTS=PhoneRunner/PhoneRunnerSelf.entitlements', calls[0])
-        self.assertIn('PRODUCT_BUNDLE_IDENTIFIER=example.dsh.PhoneRunner', calls[0])
-        self.assertEqual(calls[1][0:5], ['xcrun', 'devicectl', 'device', 'install', 'app'])
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(calls[0], ['flutter', 'pub', 'get'])
+        self.assertEqual(calls[1], ['flutter', 'build', 'ios', '--config-only', '--no-pub'])
+        self.assertEqual(calls[2][0:2], ['xcodebuild', 'build-for-testing'])
+        self.assertIn('-workspace', calls[2])
+        self.assertIn(str(ROOT / 'app/ios/Runner.xcworkspace'), calls[2])
+        self.assertNotIn('-project', calls[2])
+        self.assertIn('CODE_SIGN_ENTITLEMENTS=PhoneRunner/PhoneRunnerSelf.entitlements', calls[2])
+        self.assertIn('PRODUCT_BUNDLE_IDENTIFIER=example.dsh.PhoneRunner', calls[2])
+        self.assertEqual(calls[3][0:5], ['xcrun', 'devicectl', 'device', 'install', 'app'])
         self.assertFalse(any('copy' in call for call in calls))
         self.assertIn('choose how to store it', result.stdout)
         self.assertNotIn('private_key', result.stdout + result.stderr)
+        self.assertIn('Using Flutter SDK:', result.stderr)
+        self.assertIn('Refreshing Flutter iOS dependencies', result.stderr)
 
     def test_lockdown_record_is_rejected_before_any_device_command(self):
         result, calls = self.run_setup(valid=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('not a lockdown pairing file', result.stderr)
         self.assertEqual(calls, [])
+
+    def test_missing_flutter_reports_127_before_xcodebuild(self):
+        with tempfile.TemporaryDirectory(prefix='no-flutter-') as temporary:
+            base = Path(temporary)
+            env = {**os.environ, 'HOME': str(base), 'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'}
+            env.pop('FLUTTER_ROOT', None)
+            result = subprocess.run(['bash', str(ROOT / 'tooling/ios/ensure-flutter-ios-project.sh')],
+                                    env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 127, result.stdout + result.stderr)
+            self.assertIn('Flutter SDK not found', result.stderr)
+            self.assertIn('Exited with status code 127', result.stderr)
+            self.assertEqual(result.stdout, '')
 
 
 class PhoneNoticeEmbedding(unittest.TestCase):

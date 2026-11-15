@@ -21,6 +21,14 @@ struct PetActivityAttributes: ActivityAttributes {
     /// When the run started (epoch ms), for the chip's own timer; nil when the
     /// phase has nothing to count.
     var since: Int?
+    /// A small transparent PNG for this exact pose, rendered by the Flutter
+    /// app. It is the only art source an imported pet has when a sideloaded
+    /// build has no App Group; old activities simply decode it as nil.
+    var art: Data? = nil
+    /// Inline art window height divided by the pack body height.
+    var artBodyRatio: Double? = nil
+    /// Inline art was authored as pixel art and must not be smoothed.
+    var artPixelArt: Bool? = nil
     var label: String
     var staleLabel: String
   }
@@ -40,11 +48,12 @@ struct PetActivityAttributes: ActivityAttributes {
   }
 }
 
-/// The chosen pet's art, left by the app where the widget extension can read
-/// it. An extension cannot read the app's bundle or its sandbox, so the app
-/// copies `pack.json` and the sheets it names into an App Group folder,
-/// verbatim, one folder per pack (`<group>/pet-art/<pack id>/`). The widget
-/// draws the same cells the app draws, so the island shows the same pet.
+/// Fallback art locations for older activities and copied packs. An extension
+/// cannot read the app's bundle or its sandbox, so the app copies `pack.json`
+/// and the sheets it names into an App Group folder, verbatim, one folder per
+/// pack (`<group>/pet-art/<pack id>/`). New updates also carry a tiny inline
+/// still in `ContentState`, which is what imported pets use when the App Group
+/// is unavailable.
 enum PetArtStore {
   /// Keep in step with both targets' `.entitlements`.
   static let appGroup = "group.io.github.ccch1mneyyy.dshgo"
@@ -57,8 +66,39 @@ enum PetArtStore {
 
   /// `<group>/pet-art/<packId>`; nil for a name that could leave the folder.
   static func directory(_ packId: String) -> URL? {
-    guard let base = base(), !packId.isEmpty, packId.count <= 64,
+    guard let base = base() else { return nil }
+    return folder(in: base, named: packId)
+  }
+
+  /// `pets/<packId>`: the built-in packs the appex carries as a folder
+  /// reference. A sideloaded build has no App Group at all (the
+  /// entitlement is stripped when the profile does not authorize it), so
+  /// without this the island could only ever show an emoji for the pets the
+  /// app ships with.
+  static func bundled(_ packId: String) -> URL? {
+    guard let root = Bundle.main.resourceURL?
+      .appendingPathComponent("pets", isDirectory: true) else { return nil }
+    return folder(in: root, named: packId)
+  }
+
+  /// Where this pack can be read: the copy the app staged in the App Group
+  /// first (it is the one that matches the pet the user picked, including an
+  /// imported one), then the built-in copy in this bundle. Empty when neither
+  /// holds a `pack.json`; new activities also carry inline art, and only an
+  /// older activity without that fallback keeps its emoji.
+  static func candidates(_ packId: String) -> [URL] {
+    var seen: Set<String> = []
+    return [directory(packId), bundled(packId)].compactMap({ $0 }).filter { url in
+      let file = url.appendingPathComponent("pack.json")
+      guard FileManager.default.fileExists(atPath: file.path) else { return false }
+      return seen.insert(url.path).inserted
+    }
+  }
+
+  /// `<root>/<packId>`; nil for a name that could leave the folder.
+  private static func folder(in root: URL, named packId: String) -> URL? {
+    guard !packId.isEmpty, packId.count <= 64,
           packId.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return nil }
-    return base.appendingPathComponent(packId, isDirectory: true)
+    return root.appendingPathComponent(packId, isDirectory: true)
   }
 }

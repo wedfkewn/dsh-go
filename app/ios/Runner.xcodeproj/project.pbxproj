@@ -23,6 +23,7 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9DA4CCD005F1478331AD7A43 /* PetActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D877E0F531097F288C739C49 /* PetActivityAttributes.swift */; };
 		A08400000000000000000002 /* UnicodeData-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A08400000000000000000001 /* UnicodeData-LICENSE.txt */; };
+		E1A000000000000000000002 /* pets in Resources */ = {isa = PBXBuildFile; fileRef = E1A000000000000000000001 /* pets */; };
 		D5480000000000000000A001 /* DshPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000A002 /* DshPlugin.swift */; };
 		D5480000000000000000A003 /* VoiceChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000A004 /* VoiceChannel.swift */; };
 		D5480000000000000000A005 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000A006 /* InfoPlist.strings */; };
@@ -177,6 +178,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A08400000000000000000001 /* UnicodeData-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "UnicodeData-LICENSE.txt"; sourceTree = "<group>"; };
+		E1A000000000000000000001 /* pets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = pets; path = ../assets/pets; sourceTree = SOURCE_ROOT; };
 		A0F3B61ECA828CAEA9BB4D1D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A54F472C7DD582EFEA760035 /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D1D21B17EAC0DD900AC3A6B5 /* PetLiveActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = PetLiveActivity.entitlements; sourceTree = "<group>"; };
@@ -333,6 +335,7 @@
 			isa = PBXGroup;
 			children = (
 				735E2282E0F893677524A2E3 /* PetLiveActivity.swift */,
+				E1A000000000000000000001 /* pets */,
 				A0F3B61ECA828CAEA9BB4D1D /* Info.plist */,
 				D1D21B17EAC0DD900AC3A6B5 /* PetLiveActivity.entitlements */,
 			);
@@ -659,6 +662,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1A000000000000000000002 /* pets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

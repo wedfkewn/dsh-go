@@ -2,6 +2,7 @@ import ActivityKit
 import ImageIO
 import OSLog
 import SwiftUI
+import UIKit
 import WidgetKit
 
 @main
@@ -218,15 +219,16 @@ private struct MinimalPet: View {
   let label: String
 
   var body: some View {
-    // At this size an action prop would squeeze the body into a few pixels.
-    // Keep the selected character recognisable instead of shrinking the whole
-    // prop-heavy action window into the Minimal region.
-    PetSprite(state: idleState, label: label, bodyHeight: 14, maxHeight: 18)
+    // The inline still already is this pose. Use its state unchanged so the
+    // image and petState describe the same thing; only a pack without a still
+    // falls back to idle art, where an old pose image must not survive.
+    PetSprite(state: displayedState, label: label, bodyHeight: 14, maxHeight: 18)
       .frame(width: 22, alignment: .center)
   }
 
-  private var idleState: PetActivityAttributes.ContentState {
-    PetActivityAttributes.ContentState(packId: state.packId, phase: "idle",
+  private var displayedState: PetActivityAttributes.ContentState {
+    if state.art != nil { return state }
+    return PetActivityAttributes.ContentState(packId: state.packId, phase: "idle",
       petState: "idle", tier: nil, detail: nil, completionSeed: nil, since: nil,
       label: label, staleLabel: label)
   }
@@ -245,7 +247,18 @@ private struct PetSprite: View {
   let maxHeight: CGFloat
 
   var body: some View {
-    if let art = PetArt.sprite(packId: state.packId, phase: state.phase,
+    if let data = state.art, let image = UIImage(data: data),
+       image.size.width > 0, image.size.height > 0,
+       let ratio = state.artBodyRatio, ratio.isFinite, ratio > 0 {
+      let displayedRatio = min(max(ratio, 0.25), 4)
+      let height = min(bodyHeight * displayedRatio, maxHeight)
+      let width = height * image.size.width / image.size.height
+      Image(uiImage: image)
+        .resizable()
+        .interpolation(state.artPixelArt == true ? .none : .medium)
+        .frame(width: width, height: height)
+        .accessibilityLabel(label)
+    } else if let art = PetArt.sprite(packId: state.packId, phase: state.phase,
       petState: state.petState, tier: state.tier, seed: state.completionSeed,
       bodyHeight: bodyHeight, maxHeight: maxHeight) {
       art.image
@@ -257,8 +270,8 @@ private struct PetSprite: View {
         .clipped()
         .accessibilityLabel(label)
     } else {
-      // Only a pack that is not there at all falls back to this; the reason is
-      // logged (PetArt) rather than hidden behind the emoji.
+      // Only a missing or undecodable inline still plus no staged/bundled pack
+      // reaches this fallback; the native reason is logged by PetArt.
       Text(Emoji.face(packId: state.packId, phase: state.phase))
         .font(.system(size: bodyHeight))
         .minimumScaleFactor(0.5)
@@ -322,12 +335,17 @@ enum PetArt {
 
   static func sprite(packId: String?, phase: String, petState: String?, tier: Int?,
     seed: String?, bodyHeight: CGFloat, maxHeight: CGFloat) -> PetArtwork? {
-    guard let packId, bodyHeight > 0, maxHeight > 0,
-          let directory = PetArtStore.directory(packId) else {
+    guard let packId, bodyHeight > 0, maxHeight > 0 else {
       note(packId, "pack_not_staged")
       return nil
     }
-    guard let pack = read(packId, directory) else { return nil }
+    guard let (pack, directory) = source(packId) else {
+      note(packId, "pack_not_staged")
+      return nil
+    }
+    if let bundled = PetArtStore.bundled(packId), directory.path == bundled.path {
+      note(packId, "using_bundled_art")
+    }
     guard let name = animationName(pack, phase: phase, petState: petState,
       tier: tier, seed: seed) ?? pack.states["idle"]?.first,
           let animation = pack.animations[name] else {
@@ -371,7 +389,7 @@ enum PetArt {
     if phase == "completed", let celebration = celebration(pack, seed: seed) {
       return celebration
     }
-    let state: String = switch phase {
+    let phaseState: String = switch phase {
     case "thinking": "thinking"
     case "working", "continuedProcessing": "working"
     case "waitingApproval": "notification"
@@ -380,16 +398,31 @@ enum PetArt {
     case "authorizationEnded", "waitingRecovery": "idle"
     default: "idle"
     }
+    // The app's selected state is exact: it may be working, juggling, sweeping,
+    // or carrying inside a coarser Live Activity phase. Its tier wins first,
+    // then that exact state's own first animation. Only when the payload has
+    // no usable exact state do we fall back to the phase's equivalent state.
+    if let petState, allows(petState, phase: phase) {
+      if let tier, tier > 0 {
+        for step in pack.tiers[petState] ?? [] where tier >= step.min {
+          if pack.animations[step.anim] != nil { return step.anim }
+        }
+      }
+      if let name = pack.states[petState]?.first, pack.animations[name] != nil {
+        return name
+      }
+    }
     if let tier, tier > 0 {
-      for step in pack.tiers[state] ?? [] where tier >= step.min {
+      for step in pack.tiers[phaseState] ?? [] where tier >= step.min {
         if pack.animations[step.anim] != nil { return step.anim }
       }
     }
-    if let petState, allows(petState, phase: phase), let name = pack.states[petState]?.first,
-       pack.animations[name] != nil {
+    if let name = pack.states[phaseState]?.first, pack.animations[name] != nil {
       return name
     }
-    return pack.states[state]?.first
+    // PetPack.animFor ultimately falls back to idle, not to an arbitrary
+    // animation, so keep the island's fallback identical.
+    return pack.states["idle"]?.first
   }
 
   /// A finished turn's occasional extra pose (`bonus.attention`), picked from
@@ -425,19 +458,32 @@ enum PetArt {
     }
   }
 
+  /// The first place this pack really reads from: the app's staged copy in the
+  /// App Group, else the built-in copy in this bundle. A half-written or
+  /// unreadable staged copy falls through instead of leaving an emoji behind.
+  private static func source(_ packId: String) -> (Pack, URL)? {
+    for directory in PetArtStore.candidates(packId) {
+      if let pack = read(packId, directory) { return (pack, directory) }
+    }
+    return nil
+  }
+
   private static func read(_ packId: String, _ directory: URL) -> Pack? {
+    // Keyed by the folder, not just the pack id: the staged copy and the
+    // built-in one are two different packs that can share an id.
+    let key = directory.path
     let stamp = (try? String(contentsOf: directory.appendingPathComponent("stamp"), encoding: .utf8)) ?? ""
-    if let cached = packs[packId], cached.stamp == stamp { return cached.pack }
+    if let cached = packs[key], cached.stamp == stamp { return cached.pack }
     // A re-import can reuse a pack id with different bytes. Its stamp changes,
     // so drop that pack's images before reading the replacement sheets.
-    sheets = sheets.filter { !$0.key.hasPrefix(packId + "/") }
+    sheets = sheets.filter { !$0.key.hasPrefix(key + "/") }
     guard let data = try? Data(contentsOf: directory.appendingPathComponent("pack.json")),
           let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
           let pack = pack(json) else {
       note(packId, "pack_unreadable")
       return nil
     }
-    packs[packId] = (stamp, pack)
+    packs[key] = (stamp, pack)
     return pack
   }
 
@@ -476,7 +522,7 @@ enum PetArt {
   }
 
   private static func image(_ packId: String, _ sheet: String, _ directory: URL) -> CGImage? {
-    let key = packId + "/" + sheet
+    let key = directory.path + "/" + sheet
     if let cached = sheets[key] { return cached }
     let url = directory.appendingPathComponent(sheet)
     guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),

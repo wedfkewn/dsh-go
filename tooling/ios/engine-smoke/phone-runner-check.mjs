@@ -5,9 +5,9 @@
 // fixture does not claim to reproduce a human granting a real phone task.
 //
 //   node phone-runner-check.mjs --simulator <udid> --work <new dir>
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const { values } = parseArgs({ options: { simulator: { type: 'string' }, work: { type: 'string' } } });
@@ -16,13 +16,25 @@ mkdirSync(work, { recursive: true });
 const clean = (text) => String(text).replace(/%/g, '%25').replace(/\r?\n/g, '%0A');
 const notice = (title, text) => console.log(`::notice title=${title}::${clean(text).slice(0, 3500)}`);
 const fail = (title, text) => console.log(`::error title=${title}::${clean(text).slice(0, 3500)}`);
+const projectRoot = resolve(import.meta.dirname, '../../..');
+const prepared = spawnSync('bash', [join(projectRoot, 'tooling/ios/ensure-flutter-ios-project.sh')], {
+  cwd: projectRoot, encoding: 'utf8',
+});
+if (prepared.stderr) process.stderr.write(prepared.stderr);
+if (prepared.error || prepared.status !== 0) {
+  fail('Flutter iOS preparation', prepared.error?.message ?? `ensure-flutter-ios-project.sh exited with ${prepared.status}`);
+  process.exit(prepared.status ?? 1);
+}
+const flutterBin = prepared.stdout.trim();
+const flutterRoot = resolve(dirname(flutterBin), '..');
 
 const logFile = join(work, 'xcodebuild.log');
 const log = openSync(logFile, 'a');
-const runner = spawn('xcodebuild', ['test', '-project', 'ios/Runner.xcodeproj', '-scheme', 'PhoneRunner',
+const runner = spawn('xcodebuild', ['test', '-workspace', 'ios/Runner.xcworkspace', '-scheme', 'PhoneRunner',
   '-destination', `id=${values.simulator}`, 'CODE_SIGNING_ALLOWED=NO'], {
   // xcodebuild passes these on to the test with the prefix removed. It only looks in its environment.
-  cwd: 'app', stdio: ['ignore', log, log], env: { ...process.env, TEST_RUNNER_DSH_PHONE_RUNNER_DIR: work },
+  cwd: join(projectRoot, 'app'), stdio: ['ignore', log, log],
+  env: { ...process.env, FLUTTER_ROOT: flutterRoot, TEST_RUNNER_DSH_PHONE_RUNNER_DIR: work },
 });
 let exited = null;
 runner.on('exit', (code, signal) => { exited = code ?? signal; });

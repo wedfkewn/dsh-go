@@ -10,6 +10,8 @@ set -euo pipefail
 
 DEVICE="${1:?usage: phone-runner.sh <device id>}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+FLUTTER_BIN="$(bash "$ROOT/tooling/ios/ensure-flutter-ios-project.sh")" || exit $?
+FLUTTER_ROOT="$(cd "$(dirname "$FLUTTER_BIN")/.." && pwd -P)"
+export FLUTTER_ROOT
 cd "$ROOT/app"
-flutter pub get >/dev/null
-exec xcodebuild test -project ios/Runner.xcodeproj -scheme PhoneRunner -destination "id=$DEVICE" -allowProvisioningUpdates
+exec xcodebuild test -workspace ios/Runner.xcworkspace -scheme PhoneRunner -destination "id=$DEVICE" -allowProvisioningUpdates
