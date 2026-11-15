@@ -34,6 +34,7 @@ class SegmentedPill<T> extends StatefulWidget {
     required this.segments,
     required this.selected,
     required this.onChanged,
+    this.onReselect,
     this.expand = true,
     this.height = 36,
   }) : assert(segments.length >= 2);
@@ -43,6 +44,9 @@ class SegmentedPill<T> extends StatefulWidget {
 
   /// Null disables the control.
   final ValueChanged<T>? onChanged;
+
+  /// Called when the already-selected segment is tapped again.
+  final ValueChanged<T>? onReselect;
 
   /// Fill the available width (each segment an equal share); false sizes the
   /// control to its longest label.
@@ -88,12 +92,15 @@ class _SegmentedPillState<T> extends State<SegmentedPill<T>> {
 
   void _pick(int index, {bool tick = true}) {
     final onChanged = widget.onChanged;
+    final onReselect = widget.onReselect;
     if (onChanged == null) return;
     final value = widget.segments[index].value;
-    if (value != widget.selected) {
-      if (tick) HapticFeedback.selectionClick();
-      onChanged(value);
+    if (value == widget.selected) {
+      onReselect?.call(value);
+      return;
     }
+    if (tick) HapticFeedback.selectionClick();
+    onChanged(value);
   }
 
   @override

@@ -1,7 +1,6 @@
 // Pieces the tavern's pages share: a character's picture, importing a card,
 // deleting with a confirmation, and the long-press action sheet.
 
-import '../../share_code/system_share.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -19,6 +18,7 @@ import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_card_sites.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../settings/settings_widgets.dart';
@@ -400,7 +400,7 @@ final tavernCardSinkProvider = Provider<Future<void> Function(String name, Uint8
     await dir.create(recursive: true);
     final file = File('${dir.path}/$name');
     await file.writeAsBytes(bytes, flush: true);
-    await systemShare(
+    await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: mime, name: name)],
         fileNameOverrides: [name],
@@ -421,7 +421,7 @@ final tavernCardsSinkProvider = Provider<Future<void> Function(List<(String name
       await file.writeAsBytes(bytes, flush: true);
       shared.add(XFile(file.path, mimeType: 'image/png', name: name));
     }
-    await systemShare(
+    await SharePlus.instance.share(
       ShareParams(files: shared, fileNameOverrides: [for (final (name, _) in files) name]),
     );
   },
@@ -451,7 +451,6 @@ Future<void> shareTavernCards(BuildContext context, WidgetRef ref, List<TavernCh
 }
 
 /// A file name from a character's name: no path or reserved characters.
-@visibleForTesting
 String tavernCardFileName(String name, TavernCardFormat format) {
   final safe = name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
   return '${safe.isEmpty ? 'character' : safe}.${format.name}';
@@ -555,3 +554,8 @@ class TavernFigure extends StatelessWidget {
     );
   }
 }
+
+/// [usd], a reply's or a chat's estimated cost, as it reads: about
+/// US$0.0065; under US$0.0001 when four places would show nothing.
+String tavernCostLabel(L10n l10n, double usd) =>
+    usd < 0.0001 ? l10n.tavernUsageCostUnder('US\$0.0001') : l10n.tavernUsageCost('US\$${tavernUsd(usd)}');

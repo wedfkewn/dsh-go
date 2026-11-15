@@ -92,7 +92,10 @@ void main() {
     expect((await engine.listRegexScripts()).single.enabled, isFalse);
     expect((await engine.personaSelection(chatId: h.chatId)).persona!.id, persona.id);
     final restoredAvatar = (await engine.persona(persona.id))!.avatarPath!;
-    expect(File(restoredAvatar).absolute.path, File('${destination.path}/owned-media/avatar.bin').absolute.path);
+    expect(
+      File(restoredAvatar).resolveSymbolicLinksSync(),
+      File('${destination.path}/owned-media/avatar.bin').resolveSymbolicLinksSync(),
+    );
     expect(await File(restoredAvatar).readAsBytes(), [0, 1, 2, 255]);
     expect(await File('${destination.path}/characters/${h.characterId}/opaque/keep.writing').readAsBytes(), [
       3,

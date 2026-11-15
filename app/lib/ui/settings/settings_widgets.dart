@@ -264,7 +264,7 @@ class SettingsSwitchTile extends StatelessWidget {
         tint: tint,
         tinted: tinted,
         onTap: onChanged == null ? null : () => change(!value),
-        trailing: Switch.adaptive(value: value, onChanged: onChanged == null ? null : change),
+        trailing: Switch(value: value, onChanged: onChanged == null ? null : change),
       ),
     );
   }
@@ -398,6 +398,7 @@ class SettingsSegmentTile<T> extends StatelessWidget {
     required this.segments,
     required this.selected,
     required this.onChanged,
+    this.onReselect,
     this.tinted = true,
   }) : assert(title != null || spot != null);
 
@@ -416,6 +417,9 @@ class SettingsSegmentTile<T> extends StatelessWidget {
   final List<PillSegment<T>> segments;
   final T selected;
   final ValueChanged<T>? onChanged;
+
+  /// Called when the already-selected segment is tapped again.
+  final ValueChanged<T>? onReselect;
   final bool tinted;
 
   @override
@@ -451,6 +455,7 @@ class SettingsSegmentTile<T> extends StatelessWidget {
               segments: segments,
               selected: selected,
               onChanged: onChanged,
+              onReselect: onReselect,
               expand: !inline,
             );
             final note = switch (subtitle) {
