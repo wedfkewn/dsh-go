@@ -744,16 +744,17 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (_taps.length >= PetMetrics.tickleTaps) {
       // Tapping on keeps the tickle going.
       HapticFeedback.lightImpact();
-      _play(pack.reaction('tickle'));
+      _play(pack.reactionOutOf('tickle', PetLayer.random));
       return;
     }
-    if (_reaction != null && _reaction == pack.reaction('tickle')) {
-      _play(_reaction);
+    final tickling = _reaction;
+    if (tickling != null && (pack.reactions['tickle']?.contains(tickling.name) ?? false)) {
+      _play(pack.reactionOutOf('tickle', PetLayer.random));
       return;
     }
     HapticFeedback.selectionClick();
     final left = details.localPosition.dx < pack.anchorX * _scale;
-    _play(pack.reaction(left ? 'tapLeft' : 'tapRight'));
+    _play(pack.reactionOutOf(left ? 'tapLeft' : 'tapRight', PetLayer.random));
   }
 
   void _onDragStart(DragStartDetails details) {

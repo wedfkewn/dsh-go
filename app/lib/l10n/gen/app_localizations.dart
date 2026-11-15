@@ -46403,7 +46403,7 @@ abstract class L10n {
   /// No description provided for @workshopErrorSignIn.
   ///
   /// In zh, this message translates to:
-  /// **'需要先登录论坛账号。'**
+  /// **'需要先登录 GitHub 账号。'**
   String get workshopErrorSignIn;
 
   /// No description provided for @workshopErrorConsent.
@@ -46412,17 +46412,17 @@ abstract class L10n {
   /// **'需要先同意把登录凭据交给工坊核对身份。'**
   String get workshopErrorConsent;
 
-  /// No description provided for @workshopErrorForumMismatch.
+  /// No description provided for @workshopErrorAccountMismatch.
   ///
   /// In zh, this message translates to:
-  /// **'登录的论坛和工坊认的不是同一个，请重新登录。'**
-  String get workshopErrorForumMismatch;
+  /// **'登录的账号来源和工坊认的不一致，请重新登录。'**
+  String get workshopErrorAccountMismatch;
 
-  /// No description provided for @workshopErrorForumDown.
+  /// No description provided for @workshopErrorAccountDown.
   ///
   /// In zh, this message translates to:
-  /// **'论坛暂时联系不上，稍后再试。'**
-  String get workshopErrorForumDown;
+  /// **'暂时没能向 GitHub 核对身份，稍后再试。'**
+  String get workshopErrorAccountDown;
 
   /// No description provided for @workshopErrorPreferences.
   ///
@@ -46454,16 +46454,28 @@ abstract class L10n {
   /// **'没有成功，稍后再试。'**
   String get workshopErrorGeneric;
 
+  /// No description provided for @workshopErrorWithCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有成功，稍后再试。（{code}）'**
+  String workshopErrorWithCode(String code);
+
+  /// No description provided for @workshopErrorPackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'包里有文件不符合要求，没法上传（{code}）。'**
+  String workshopErrorPackage(String code);
+
   /// No description provided for @workshopDisclosureTitle.
   ///
   /// In zh, this message translates to:
-  /// **'让工坊核对你的论坛身份'**
+  /// **'让工坊核对你的 GitHub 身份'**
   String get workshopDisclosureTitle;
 
   /// No description provided for @workshopDisclosureLead.
   ///
   /// In zh, this message translates to:
-  /// **'投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的论坛登录凭据（User API Key）发给下面这个工坊服务，由它去问论坛你是哪个账号。'**
+  /// **'投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的 GitHub 登录凭据发给下面这个工坊服务，由它去问 GitHub 你是哪个账号。'**
   String get workshopDisclosureLead;
 
   /// No description provided for @workshopDisclosureWorker.
@@ -46472,22 +46484,22 @@ abstract class L10n {
   /// **'收到凭据的工坊'**
   String get workshopDisclosureWorker;
 
-  /// No description provided for @workshopDisclosureForum.
+  /// No description provided for @workshopDisclosureAccount.
   ///
   /// In zh, this message translates to:
-  /// **'核对身份的论坛'**
-  String get workshopDisclosureForum;
+  /// **'核对身份的账号服务'**
+  String get workshopDisclosureAccount;
 
   /// No description provided for @workshopDisclosureUse.
   ///
   /// In zh, this message translates to:
-  /// **'投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向论坛确认身份，不保存。'**
+  /// **'投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向 GitHub 确认身份，不保存。'**
   String get workshopDisclosureUse;
 
   /// No description provided for @workshopDisclosureKept.
   ///
   /// In zh, this message translates to:
-  /// **'本机只记下你同意过这两个地址，不另存凭据；换了其中一个会再问。'**
+  /// **'凭据只在本次运行的内存里，重新打开 App 后要再登录一次；本机另外记下你同意过这两个地址，换了其中一个会再问。'**
   String get workshopDisclosureKept;
 
   /// No description provided for @workshopDisclosureStale.
@@ -46513,6 +46525,96 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'这次同意已经生效，但没能记在本机，下次可能再问一遍。'**
   String get workshopDisclosureUnsaved;
+
+  /// No description provided for @workshopSignInTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 GitHub 登录'**
+  String get workshopSignInTitle;
+
+  /// No description provided for @workshopSignInLead.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊用 GitHub 账号认人。这次授权只能读你的公开资料（用户名和账号编号），不能动你的仓库。'**
+  String get workshopSignInLead;
+
+  /// No description provided for @workshopSignInPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在向 GitHub 要验证码…'**
+  String get workshopSignInPreparing;
+
+  /// No description provided for @workshopSignInSteps.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 GitHub 验证页输入验证码并授权，再回到这里。'**
+  String get workshopSignInSteps;
+
+  /// No description provided for @workshopSignInOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制并打开 GitHub'**
+  String get workshopSignInOpen;
+
+  /// No description provided for @workshopSignInCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码已复制'**
+  String get workshopSignInCopied;
+
+  /// No description provided for @workshopSignInWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'等你在 GitHub 上授权…'**
+  String get workshopSignInWaiting;
+
+  /// No description provided for @workshopSignInExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码过期了。'**
+  String get workshopSignInExpired;
+
+  /// No description provided for @workshopSignInDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'你在 GitHub 上取消了授权。'**
+  String get workshopSignInDenied;
+
+  /// No description provided for @workshopSignInNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'连不上 GitHub，检查网络后再试。'**
+  String get workshopSignInNetwork;
+
+  /// No description provided for @workshopSignInUnconfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个工坊还没开通 GitHub 登录。'**
+  String get workshopSignInUnconfigured;
+
+  /// No description provided for @workshopSignInAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新获取验证码'**
+  String get workshopSignInAgain;
+
+  /// No description provided for @workshopAccountLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'GitHub 账号 {login}'**
+  String workshopAccountLine(String login);
+
+  /// No description provided for @workshopAccountSignOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get workshopAccountSignOut;
+
+  /// No description provided for @workshopAccountSignedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'已退出。要彻底收回授权，去 GitHub 设置里的 Applications 页撤销。'**
+  String get workshopAccountSignedOut;
 
   /// No description provided for @workshopInstalledEmptyTitle.
   ///
@@ -46766,6 +46868,12 @@ abstract class L10n {
   /// **'已卸载，但有些地方没能跟着更新，重新打开 App 就好。'**
   String get workshopInstalledRemovedLocalIssue;
 
+  /// No description provided for @workshopInstalledDismissFailure.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get workshopInstalledDismissFailure;
+
   /// No description provided for @workshopMinePublish.
   ///
   /// In zh, this message translates to:
@@ -46781,7 +46889,7 @@ abstract class L10n {
   /// No description provided for @workshopMineSignInTitle.
   ///
   /// In zh, this message translates to:
-  /// **'投稿记在论坛账号上'**
+  /// **'投稿记在 GitHub 账号上'**
   String get workshopMineSignInTitle;
 
   /// No description provided for @workshopMineSignInMessage.
@@ -46799,7 +46907,7 @@ abstract class L10n {
   /// No description provided for @workshopMineConsentMessage.
   ///
   /// In zh, this message translates to:
-  /// **'工坊要用你的论坛登录凭据核对身份，同意后才能看到自己的投稿。'**
+  /// **'工坊要用你的 GitHub 登录凭据核对身份，同意后才能看到自己的投稿。'**
   String get workshopMineConsentMessage;
 
   /// No description provided for @workshopMineConsentAction.
@@ -47093,7 +47201,7 @@ abstract class L10n {
   /// No description provided for @workshopReportSignInTitle.
   ///
   /// In zh, this message translates to:
-  /// **'举报需要论坛账号'**
+  /// **'举报需要 GitHub 账号'**
   String get workshopReportSignInTitle;
 
   /// No description provided for @workshopReportSignInMessage.
@@ -47105,7 +47213,7 @@ abstract class L10n {
   /// No description provided for @workshopReportConsentMessage.
   ///
   /// In zh, this message translates to:
-  /// **'工坊要用你的论坛登录凭据核对身份，同意后才能举报。'**
+  /// **'工坊要用你的 GitHub 登录凭据核对身份，同意后才能举报。'**
   String get workshopReportConsentMessage;
 
   /// No description provided for @workshopReportUnknownTitle.
@@ -47153,19 +47261,19 @@ abstract class L10n {
   /// No description provided for @workshopPublishSignInTitle.
   ///
   /// In zh, this message translates to:
-  /// **'先登录论坛账号'**
+  /// **'先登录 GitHub 账号'**
   String get workshopPublishSignInTitle;
 
   /// No description provided for @workshopPublishSignInMessage.
   ///
   /// In zh, this message translates to:
-  /// **'工坊靠论坛账号确认投稿的人是谁。'**
+  /// **'工坊靠 GitHub 账号确认投稿的人是谁。'**
   String get workshopPublishSignInMessage;
 
   /// No description provided for @workshopPublishProfileTitle.
   ///
   /// In zh, this message translates to:
-  /// **'还没读到论坛账号资料'**
+  /// **'还没读到 GitHub 账号资料'**
   String get workshopPublishProfileTitle;
 
   /// No description provided for @workshopPublishProfileMessage.
@@ -47213,8 +47321,38 @@ abstract class L10n {
   /// No description provided for @workshopPublishSourcesEmptyMessage.
   ///
   /// In zh, this message translates to:
-  /// **'自己导入的像素宠物和现在的伙伴可以投稿。'**
+  /// **'自己导入的像素宠物和现在的伙伴可以投稿，也可以直接从文件选一个。'**
   String get workshopPublishSourcesEmptyMessage;
+
+  /// No description provided for @workshopPublishFromFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'从文件选择'**
+  String get workshopPublishFromFile;
+
+  /// No description provided for @workshopPublishFromFileHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'宠物或伙伴的 zip，不用先导入'**
+  String get workshopPublishFromFileHint;
+
+  /// No description provided for @workshopPublishTitleEnHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'选填，留空就用中文名称'**
+  String get workshopPublishTitleEnHelper;
+
+  /// No description provided for @workshopPublishAuthorHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'选填，留空就用你的 GitHub 用户名'**
+  String get workshopPublishAuthorHelper;
+
+  /// No description provided for @workshopPublishLicenseHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'选填，不选就是「作者授权」'**
+  String get workshopPublishLicenseHelper;
 
   /// No description provided for @workshopPublishSourcesIssue.
   ///
@@ -47285,7 +47423,7 @@ abstract class L10n {
   /// No description provided for @workshopPublishIdHelper.
   ///
   /// In zh, this message translates to:
-  /// **'小写字母、数字和短横线'**
+  /// **'选填，留空按名称自动生成；小写字母、数字和短横线'**
   String get workshopPublishIdHelper;
 
   /// No description provided for @workshopPublishAuthor.
@@ -47309,7 +47447,7 @@ abstract class L10n {
   /// No description provided for @workshopPublishSourceHelper.
   ///
   /// In zh, this message translates to:
-  /// **'作品主页或出处，以 https:// 开头'**
+  /// **'选填，留空就用你的 GitHub 主页；以 https:// 开头'**
   String get workshopPublishSourceHelper;
 
   /// No description provided for @workshopPublishSectionAbout.
@@ -47623,6 +47761,180 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'现在还不能重新投稿。'**
   String get workshopPublishErrorAgain;
+
+  /// No description provided for @workshopPublishSectionPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览图'**
+  String get workshopPublishSectionPreview;
+
+  /// No description provided for @workshopPublishPreviewSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'在工坊里显示预览图'**
+  String get workshopPublishPreviewSwitch;
+
+  /// No description provided for @workshopPublishPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'用待机动画的第一帧'**
+  String get workshopPublishPreviewIdle;
+
+  /// No description provided for @workshopPublishSectionCover.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面（选填）'**
+  String get workshopPublishSectionCover;
+
+  /// No description provided for @workshopPublishCoverPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选一张封面'**
+  String get workshopPublishCoverPick;
+
+  /// No description provided for @workshopPublishCoverHelper.
+  ///
+  /// In zh, this message translates to:
+  /// **'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。'**
+  String get workshopPublishCoverHelper;
+
+  /// No description provided for @workshopPublishCoverChosen.
+  ///
+  /// In zh, this message translates to:
+  /// **'自选封面'**
+  String get workshopPublishCoverChosen;
+
+  /// No description provided for @workshopPublishCoverReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一张'**
+  String get workshopPublishCoverReplace;
+
+  /// No description provided for @workshopPublishCoverRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get workshopPublishCoverRemove;
+
+  /// No description provided for @workshopPublishCoverBadSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图是空的或超过 2 MB，换一张试试。'**
+  String get workshopPublishCoverBadSize;
+
+  /// No description provided for @workshopPublishCoverBadPng.
+  ///
+  /// In zh, this message translates to:
+  /// **'这不是一张完整的 PNG 图片，换一张试试。'**
+  String get workshopPublishCoverBadPng;
+
+  /// No description provided for @workshopPublishCoverBadDimensions.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图太大了，每边最多 512 像素。缩小后再选。'**
+  String get workshopPublishCoverBadDimensions;
+
+  /// No description provided for @workshopPublishCoverUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能读出这张图，换一张试试。'**
+  String get workshopPublishCoverUnreadable;
+
+  /// No description provided for @workshopPublishReviewPreviewIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待机动画第一帧'**
+  String get workshopPublishReviewPreviewIdle;
+
+  /// No description provided for @workshopPublishReviewPreviewNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不带预览图'**
+  String get workshopPublishReviewPreviewNone;
+
+  /// No description provided for @workshopPublishErrorPreviewPet.
+  ///
+  /// In zh, this message translates to:
+  /// **'这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewPet;
+
+  /// No description provided for @workshopPublishErrorPreviewConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。'**
+  String get workshopPublishErrorPreviewConflict;
+
+  /// No description provided for @workshopPublishErrorPreviewMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没找到要用的预览图。重新选一次，或者去掉预览图再投稿。'**
+  String get workshopPublishErrorPreviewMissing;
+
+  /// No description provided for @workshopPublishErrorPreviewUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个工坊现在不收预览图。去掉预览图可以照常投稿。'**
+  String get workshopPublishErrorPreviewUnsupported;
+
+  /// No description provided for @workshopPublishLetGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下这条记录'**
+  String get workshopPublishLetGo;
+
+  /// No description provided for @workshopPublishLetGoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下本机的这条记录？'**
+  String get workshopPublishLetGoTitle;
+
+  /// No description provided for @workshopPublishLetGoAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'只删除这台手机上，这个 GitHub 账号在工坊 {worker} 的这条未完成记录。'**
+  String workshopPublishLetGoAccount(String worker);
+
+  /// No description provided for @workshopPublishLetGoAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是这个 GitHub 账号在工坊 {worker} 的这一条。'**
+  String workshopPublishLetGoAll(String worker);
+
+  /// No description provided for @workshopPublishLetGoFacts.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。'**
+  String get workshopPublishLetGoFacts;
+
+  /// No description provided for @workshopPublishLetGoFactsKnown.
+  ///
+  /// In zh, this message translates to:
+  /// **'工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。'**
+  String get workshopPublishLetGoFactsKnown;
+
+  /// No description provided for @workshopPublishLetGoConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'放下记录'**
+  String get workshopPublishLetGoConfirm;
+
+  /// No description provided for @workshopPublishLetGoDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已放下本机的记录'**
+  String get workshopPublishLetGoDone;
+
+  /// No description provided for @workshopPublishLetGoStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录刚刚有变化，再点一次重新确认。'**
+  String get workshopPublishLetGoStale;
+
+  /// No description provided for @workshopPublishLetGoUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个版本没法在这里放下记录。'**
+  String get workshopPublishLetGoUnsupported;
 
   /// No description provided for @workspaceRecoveryTitle.
   ///

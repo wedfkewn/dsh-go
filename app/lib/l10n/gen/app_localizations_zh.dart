@@ -25498,16 +25498,16 @@ class L10nZh extends L10n {
   String get workshopErrorOtherOrigin => '这是从别的工坊装的。';
 
   @override
-  String get workshopErrorSignIn => '需要先登录论坛账号。';
+  String get workshopErrorSignIn => '需要先登录 GitHub 账号。';
 
   @override
   String get workshopErrorConsent => '需要先同意把登录凭据交给工坊核对身份。';
 
   @override
-  String get workshopErrorForumMismatch => '登录的论坛和工坊认的不是同一个，请重新登录。';
+  String get workshopErrorAccountMismatch => '登录的账号来源和工坊认的不一致，请重新登录。';
 
   @override
-  String get workshopErrorForumDown => '论坛暂时联系不上，稍后再试。';
+  String get workshopErrorAccountDown => '暂时没能向 GitHub 核对身份，稍后再试。';
 
   @override
   String get workshopErrorPreferences => '没能保存本机的记录，这一步没有继续。';
@@ -25525,22 +25525,32 @@ class L10nZh extends L10n {
   String get workshopErrorGeneric => '没有成功，稍后再试。';
 
   @override
-  String get workshopDisclosureTitle => '让工坊核对你的论坛身份';
+  String workshopErrorWithCode(String code) {
+    return '没有成功，稍后再试。（$code）';
+  }
 
   @override
-  String get workshopDisclosureLead => '投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的论坛登录凭据（User API Key）发给下面这个工坊服务，由它去问论坛你是哪个账号。';
+  String workshopErrorPackage(String code) {
+    return '包里有文件不符合要求，没法上传（$code）。';
+  }
+
+  @override
+  String get workshopDisclosureTitle => '让工坊核对你的 GitHub 身份';
+
+  @override
+  String get workshopDisclosureLead => '投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的 GitHub 登录凭据发给下面这个工坊服务，由它去问 GitHub 你是哪个账号。';
 
   @override
   String get workshopDisclosureWorker => '收到凭据的工坊';
 
   @override
-  String get workshopDisclosureForum => '核对身份的论坛';
+  String get workshopDisclosureAccount => '核对身份的账号服务';
 
   @override
-  String get workshopDisclosureUse => '投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向论坛确认身份，不保存。';
+  String get workshopDisclosureUse => '投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向 GitHub 确认身份，不保存。';
 
   @override
-  String get workshopDisclosureKept => '本机只记下你同意过这两个地址，不另存凭据；换了其中一个会再问。';
+  String get workshopDisclosureKept => '凭据只在本次运行的内存里，重新打开 App 后要再登录一次；本机另外记下你同意过这两个地址，换了其中一个会再问。';
 
   @override
   String get workshopDisclosureStale => '地址刚刚有变化，请按现在显示的重新确认。';
@@ -25553,6 +25563,53 @@ class L10nZh extends L10n {
 
   @override
   String get workshopDisclosureUnsaved => '这次同意已经生效，但没能记在本机，下次可能再问一遍。';
+
+  @override
+  String get workshopSignInTitle => '用 GitHub 登录';
+
+  @override
+  String get workshopSignInLead => '工坊用 GitHub 账号认人。这次授权只能读你的公开资料（用户名和账号编号），不能动你的仓库。';
+
+  @override
+  String get workshopSignInPreparing => '正在向 GitHub 要验证码…';
+
+  @override
+  String get workshopSignInSteps => '在 GitHub 验证页输入验证码并授权，再回到这里。';
+
+  @override
+  String get workshopSignInOpen => '复制并打开 GitHub';
+
+  @override
+  String get workshopSignInCopied => '验证码已复制';
+
+  @override
+  String get workshopSignInWaiting => '等你在 GitHub 上授权…';
+
+  @override
+  String get workshopSignInExpired => '验证码过期了。';
+
+  @override
+  String get workshopSignInDenied => '你在 GitHub 上取消了授权。';
+
+  @override
+  String get workshopSignInNetwork => '连不上 GitHub，检查网络后再试。';
+
+  @override
+  String get workshopSignInUnconfigured => '这个工坊还没开通 GitHub 登录。';
+
+  @override
+  String get workshopSignInAgain => '重新获取验证码';
+
+  @override
+  String workshopAccountLine(String login) {
+    return 'GitHub 账号 $login';
+  }
+
+  @override
+  String get workshopAccountSignOut => '退出登录';
+
+  @override
+  String get workshopAccountSignedOut => '已退出。要彻底收回授权，去 GitHub 设置里的 Applications 页撤销。';
 
   @override
   String get workshopInstalledEmptyTitle => '还没有从工坊装过东西';
@@ -25685,13 +25742,16 @@ class L10nZh extends L10n {
   String get workshopInstalledRemovedLocalIssue => '已卸载，但有些地方没能跟着更新，重新打开 App 就好。';
 
   @override
+  String get workshopInstalledDismissFailure => '知道了';
+
+  @override
   String get workshopMinePublish => '投稿';
 
   @override
   String get workshopMinePublishHint => '审核通过后出现在「发现」里';
 
   @override
-  String get workshopMineSignInTitle => '投稿记在论坛账号上';
+  String get workshopMineSignInTitle => '投稿记在 GitHub 账号上';
 
   @override
   String get workshopMineSignInMessage => '登录后就能看到自己发过的作品。';
@@ -25700,7 +25760,7 @@ class L10nZh extends L10n {
   String get workshopMineConsentTitle => '还差一步确认';
 
   @override
-  String get workshopMineConsentMessage => '工坊要用你的论坛登录凭据核对身份，同意后才能看到自己的投稿。';
+  String get workshopMineConsentMessage => '工坊要用你的 GitHub 登录凭据核对身份，同意后才能看到自己的投稿。';
 
   @override
   String get workshopMineConsentAction => '查看说明';
@@ -25853,13 +25913,13 @@ class L10nZh extends L10n {
   String get workshopReportDone => '举报已送达，审核员会查看。';
 
   @override
-  String get workshopReportSignInTitle => '举报需要论坛账号';
+  String get workshopReportSignInTitle => '举报需要 GitHub 账号';
 
   @override
   String get workshopReportSignInMessage => '登录后才能提交举报。';
 
   @override
-  String get workshopReportConsentMessage => '工坊要用你的论坛登录凭据核对身份，同意后才能举报。';
+  String get workshopReportConsentMessage => '工坊要用你的 GitHub 登录凭据核对身份，同意后才能举报。';
 
   @override
   String get workshopReportUnknownTitle => '不确定有没有送达';
@@ -25885,13 +25945,13 @@ class L10nZh extends L10n {
   String get workshopPublishClosedMessage => '已经交上去的仍然可以在「我的投稿」里看。';
 
   @override
-  String get workshopPublishSignInTitle => '先登录论坛账号';
+  String get workshopPublishSignInTitle => '先登录 GitHub 账号';
 
   @override
-  String get workshopPublishSignInMessage => '工坊靠论坛账号确认投稿的人是谁。';
+  String get workshopPublishSignInMessage => '工坊靠 GitHub 账号确认投稿的人是谁。';
 
   @override
-  String get workshopPublishProfileTitle => '还没读到论坛账号资料';
+  String get workshopPublishProfileTitle => '还没读到 GitHub 账号资料';
 
   @override
   String get workshopPublishProfileMessage => '要先知道你是哪个账号，才能投稿。';
@@ -25915,7 +25975,22 @@ class L10nZh extends L10n {
   String get workshopPublishSourcesEmptyTitle => '还没有可以投稿的';
 
   @override
-  String get workshopPublishSourcesEmptyMessage => '自己导入的像素宠物和现在的伙伴可以投稿。';
+  String get workshopPublishSourcesEmptyMessage => '自己导入的像素宠物和现在的伙伴可以投稿，也可以直接从文件选一个。';
+
+  @override
+  String get workshopPublishFromFile => '从文件选择';
+
+  @override
+  String get workshopPublishFromFileHint => '宠物或伙伴的 zip，不用先导入';
+
+  @override
+  String get workshopPublishTitleEnHelper => '选填，留空就用中文名称';
+
+  @override
+  String get workshopPublishAuthorHelper => '选填，留空就用你的 GitHub 用户名';
+
+  @override
+  String get workshopPublishLicenseHelper => '选填，不选就是「作者授权」';
 
   @override
   String get workshopPublishSourcesIssue => '没能读出本机可以投稿的内容。';
@@ -25951,7 +26026,7 @@ class L10nZh extends L10n {
   String get workshopPublishId => '作品 ID';
 
   @override
-  String get workshopPublishIdHelper => '小写字母、数字和短横线';
+  String get workshopPublishIdHelper => '选填，留空按名称自动生成；小写字母、数字和短横线';
 
   @override
   String get workshopPublishAuthor => '作者';
@@ -25963,7 +26038,7 @@ class L10nZh extends L10n {
   String get workshopPublishSourceLink => '来源链接';
 
   @override
-  String get workshopPublishSourceHelper => '作品主页或出处，以 https:// 开头';
+  String get workshopPublishSourceHelper => '选填，留空就用你的 GitHub 主页；以 https:// 开头';
 
   @override
   String get workshopPublishSectionAbout => '介绍（选填）';
@@ -26122,6 +26197,97 @@ class L10nZh extends L10n {
 
   @override
   String get workshopPublishErrorAgain => '现在还不能重新投稿。';
+
+  @override
+  String get workshopPublishSectionPreview => '预览图';
+
+  @override
+  String get workshopPublishPreviewSwitch => '在工坊里显示预览图';
+
+  @override
+  String get workshopPublishPreviewIdle => '用待机动画的第一帧';
+
+  @override
+  String get workshopPublishSectionCover => '封面（选填）';
+
+  @override
+  String get workshopPublishCoverPick => '选一张封面';
+
+  @override
+  String get workshopPublishCoverHelper => 'PNG，每边不超过 512 像素，不超过 2 MB。不选就显示名字的第一个字。';
+
+  @override
+  String get workshopPublishCoverChosen => '自选封面';
+
+  @override
+  String get workshopPublishCoverReplace => '换一张';
+
+  @override
+  String get workshopPublishCoverRemove => '移除';
+
+  @override
+  String get workshopPublishCoverBadSize => '这张图是空的或超过 2 MB，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadPng => '这不是一张完整的 PNG 图片，换一张试试。';
+
+  @override
+  String get workshopPublishCoverBadDimensions => '这张图太大了，每边最多 512 像素。缩小后再选。';
+
+  @override
+  String get workshopPublishCoverUnreadable => '没能读出这张图，换一张试试。';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => '待机动画第一帧';
+
+  @override
+  String get workshopPublishReviewPreviewNone => '不带预览图';
+
+  @override
+  String get workshopPublishErrorPreviewPet => '这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewConflict => '伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewMissing => '没找到要用的预览图。重新选一次，或者去掉预览图再投稿。';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported => '这个工坊现在不收预览图。去掉预览图可以照常投稿。';
+
+  @override
+  String get workshopPublishLetGo => '放下这条记录';
+
+  @override
+  String get workshopPublishLetGoTitle => '放下本机的这条记录？';
+
+  @override
+  String workshopPublishLetGoAccount(String worker) {
+    return '只删除这台手机上，这个 GitHub 账号在工坊 $worker 的这条未完成记录。';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String worker) {
+    return '这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是这个 GitHub 账号在工坊 $worker 的这一条。';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts => '工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。';
+
+  @override
+  String get workshopPublishLetGoFactsKnown => '工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。';
+
+  @override
+  String get workshopPublishLetGoConfirm => '放下记录';
+
+  @override
+  String get workshopPublishLetGoDone => '已放下本机的记录';
+
+  @override
+  String get workshopPublishLetGoStale => '记录刚刚有变化，再点一次重新确认。';
+
+  @override
+  String get workshopPublishLetGoUnsupported => '这个版本没法在这里放下记录。';
 
   @override
   String get workspaceRecoveryTitle => '工作区索引救援';

@@ -26867,17 +26867,17 @@ class L10nEn extends L10n {
   String get workshopErrorOtherOrigin => 'This was installed from a different Workshop.';
 
   @override
-  String get workshopErrorSignIn => 'Sign in to the forum first.';
+  String get workshopErrorSignIn => 'Sign in with GitHub first.';
 
   @override
   String get workshopErrorConsent => 'Agree to let the Workshop check your sign-in first.';
 
   @override
-  String get workshopErrorForumMismatch =>
-      'The forum you signed in to isn\'t the one this Workshop uses. Sign in again.';
+  String get workshopErrorAccountMismatch =>
+      'The account you signed in with isn\'t the kind this Workshop uses. Sign in again.';
 
   @override
-  String get workshopErrorForumDown => 'The forum can\'t be reached right now. Try again later.';
+  String get workshopErrorAccountDown => 'Couldn\'t confirm who you are with GitHub right now. Try again later.';
 
   @override
   String get workshopErrorPreferences => 'Couldn\'t save the record on this phone, so this step didn\'t continue.';
@@ -26896,25 +26896,35 @@ class L10nEn extends L10n {
   String get workshopErrorGeneric => 'That didn\'t work. Try again later.';
 
   @override
-  String get workshopDisclosureTitle => 'Let the Workshop confirm who you are';
+  String workshopErrorWithCode(String code) {
+    return 'That didn\'t work. Try again later. ($code)';
+  }
+
+  @override
+  String workshopErrorPackage(String code) {
+    return 'A file in this pack doesn\'t meet the requirements, so it can\'t be uploaded ($code).';
+  }
+
+  @override
+  String get workshopDisclosureTitle => 'Let the Workshop confirm your GitHub identity';
 
   @override
   String get workshopDisclosureLead =>
-      'To submit, manage your submissions or report something, the Workshop needs to know who you are. To find out, your forum sign-in credential (a User API Key) is sent to the Workshop service below, which asks the forum which account it belongs to.';
+      'To submit, manage your submissions or report something, the Workshop needs to know who you are. To find out, your GitHub sign-in credential is sent to the Workshop service below, which asks GitHub which account it belongs to.';
 
   @override
   String get workshopDisclosureWorker => 'Workshop that receives the credential';
 
   @override
-  String get workshopDisclosureForum => 'Forum that confirms who you are';
+  String get workshopDisclosureAccount => 'Account service that confirms who you are';
 
   @override
   String get workshopDisclosureUse =>
-      'It is sent when you submit, view or withdraw your submissions, or report something. The Workshop only uses it to confirm your identity with the forum and does not keep it.';
+      'It is sent when you submit, view or withdraw your submissions, or report something. The Workshop only uses it to confirm your identity with GitHub and does not keep it.';
 
   @override
   String get workshopDisclosureKept =>
-      'This phone only remembers that you agreed to these two addresses, with no extra copy of the credential. If either changes, you\'ll be asked again.';
+      'The credential lives only in this run\'s memory; after you reopen the app, sign in again. This phone remembers that you agreed to these two addresses, and if either changes you\'ll be asked again.';
 
   @override
   String get workshopDisclosureStale => 'The addresses just changed. Please confirm the ones shown now.';
@@ -26928,6 +26938,56 @@ class L10nEn extends L10n {
   @override
   String get workshopDisclosureUnsaved =>
       'Your consent counts for now, but it couldn\'t be saved on this phone. You may be asked again.';
+
+  @override
+  String get workshopSignInTitle => 'Sign in with GitHub';
+
+  @override
+  String get workshopSignInLead =>
+      'The Workshop knows authors by their GitHub account. This sign-in can only read your public profile (username and account number), not your repositories.';
+
+  @override
+  String get workshopSignInPreparing => 'Getting a code from GitHub…';
+
+  @override
+  String get workshopSignInSteps =>
+      'Enter this code on GitHub\'s verification page and authorize, then come back here.';
+
+  @override
+  String get workshopSignInOpen => 'Copy and open GitHub';
+
+  @override
+  String get workshopSignInCopied => 'Code copied';
+
+  @override
+  String get workshopSignInWaiting => 'Waiting for you to authorize on GitHub…';
+
+  @override
+  String get workshopSignInExpired => 'The code expired.';
+
+  @override
+  String get workshopSignInDenied => 'You cancelled the authorization on GitHub.';
+
+  @override
+  String get workshopSignInNetwork => 'Can\'t reach GitHub. Check the connection and try again.';
+
+  @override
+  String get workshopSignInUnconfigured => 'This Workshop hasn\'t set up GitHub sign-in yet.';
+
+  @override
+  String get workshopSignInAgain => 'Get a new code';
+
+  @override
+  String workshopAccountLine(String login) {
+    return 'GitHub account $login';
+  }
+
+  @override
+  String get workshopAccountSignOut => 'Sign out';
+
+  @override
+  String get workshopAccountSignedOut =>
+      'Signed out. To withdraw the authorization completely, revoke it under Applications in your GitHub settings.';
 
   @override
   String get workshopInstalledEmptyTitle => 'Nothing from the Workshop yet';
@@ -27069,13 +27129,16 @@ class L10nEn extends L10n {
       'Uninstalled, but some places didn\'t catch up. Reopen the app to bring them up to date.';
 
   @override
+  String get workshopInstalledDismissFailure => 'Got it';
+
+  @override
   String get workshopMinePublish => 'Submit';
 
   @override
   String get workshopMinePublishHint => 'Shows up in Discover once approved';
 
   @override
-  String get workshopMineSignInTitle => 'Submissions belong to a forum account';
+  String get workshopMineSignInTitle => 'Submissions belong to a GitHub account';
 
   @override
   String get workshopMineSignInMessage => 'Sign in to see what you have sent in.';
@@ -27085,7 +27148,7 @@ class L10nEn extends L10n {
 
   @override
   String get workshopMineConsentMessage =>
-      'The workshop checks who you are with your forum sign-in. Agree to that to see your submissions.';
+      'The workshop checks who you are with your GitHub sign-in. Agree to that to see your submissions.';
 
   @override
   String get workshopMineConsentAction => 'See details';
@@ -27241,14 +27304,14 @@ class L10nEn extends L10n {
   String get workshopReportDone => 'Report received. A reviewer will look at it.';
 
   @override
-  String get workshopReportSignInTitle => 'Reporting needs a forum account';
+  String get workshopReportSignInTitle => 'Reporting needs a GitHub account';
 
   @override
   String get workshopReportSignInMessage => 'Sign in to send a report.';
 
   @override
   String get workshopReportConsentMessage =>
-      'The workshop checks who you are with your forum sign-in. Agree to that to report.';
+      'The workshop checks who you are with your GitHub sign-in. Agree to that to report.';
 
   @override
   String get workshopReportUnknownTitle => 'Not sure it arrived';
@@ -27275,13 +27338,13 @@ class L10nEn extends L10n {
   String get workshopPublishClosedMessage => 'What you already sent is still under My uploads.';
 
   @override
-  String get workshopPublishSignInTitle => 'Sign in to the forum first';
+  String get workshopPublishSignInTitle => 'Sign in with GitHub first';
 
   @override
-  String get workshopPublishSignInMessage => 'The Workshop uses your forum account to know who is submitting.';
+  String get workshopPublishSignInMessage => 'The Workshop uses your GitHub account to know who is submitting.';
 
   @override
-  String get workshopPublishProfileTitle => 'Couldn\'t read your forum account yet';
+  String get workshopPublishProfileTitle => 'Couldn\'t read your GitHub account yet';
 
   @override
   String get workshopPublishProfileMessage => 'Submitting needs to know which account you are.';
@@ -27306,7 +27369,22 @@ class L10nEn extends L10n {
 
   @override
   String get workshopPublishSourcesEmptyMessage =>
-      'Pixel pets you imported and your current companion can be submitted.';
+      'Pixel pets you imported and your current companion can be submitted, or pick a file directly.';
+
+  @override
+  String get workshopPublishFromFile => 'Choose a file';
+
+  @override
+  String get workshopPublishFromFileHint => 'A pet or companion zip; no need to import it first';
+
+  @override
+  String get workshopPublishTitleEnHelper => 'Optional; the Chinese name is used if empty';
+
+  @override
+  String get workshopPublishAuthorHelper => 'Optional; your GitHub username is used if empty';
+
+  @override
+  String get workshopPublishLicenseHelper => 'Optional; Author permission if none is picked';
 
   @override
   String get workshopPublishSourcesIssue => 'Couldn\'t read what can be submitted from this phone.';
@@ -27343,7 +27421,7 @@ class L10nEn extends L10n {
   String get workshopPublishId => 'Item ID';
 
   @override
-  String get workshopPublishIdHelper => 'Lowercase letters, digits and hyphens';
+  String get workshopPublishIdHelper => 'Optional; made from the name if empty. Lowercase letters, digits and hyphens';
 
   @override
   String get workshopPublishAuthor => 'Author';
@@ -27355,7 +27433,7 @@ class L10nEn extends L10n {
   String get workshopPublishSourceLink => 'Source link';
 
   @override
-  String get workshopPublishSourceHelper => 'Its home page or where it comes from, starting with https://';
+  String get workshopPublishSourceHelper => 'Optional; your GitHub page is used if empty. Starts with https://';
 
   @override
   String get workshopPublishSectionAbout => 'About (optional)';
@@ -27518,6 +27596,105 @@ class L10nEn extends L10n {
 
   @override
   String get workshopPublishErrorAgain => 'It can\'t be submitted again right now.';
+
+  @override
+  String get workshopPublishSectionPreview => 'Preview';
+
+  @override
+  String get workshopPublishPreviewSwitch => 'Show a preview in the Workshop';
+
+  @override
+  String get workshopPublishPreviewIdle => 'The first frame of the idle animation';
+
+  @override
+  String get workshopPublishSectionCover => 'Cover (optional)';
+
+  @override
+  String get workshopPublishCoverPick => 'Choose a cover';
+
+  @override
+  String get workshopPublishCoverHelper =>
+      'PNG, up to 512 px a side and 2 MB. Without one, the first letter of the name is shown.';
+
+  @override
+  String get workshopPublishCoverChosen => 'Your cover';
+
+  @override
+  String get workshopPublishCoverReplace => 'Replace';
+
+  @override
+  String get workshopPublishCoverRemove => 'Remove';
+
+  @override
+  String get workshopPublishCoverBadSize => 'This image is empty or larger than 2 MB. Try another.';
+
+  @override
+  String get workshopPublishCoverBadPng => 'This isn\'t an intact PNG image. Try another.';
+
+  @override
+  String get workshopPublishCoverBadDimensions =>
+      'This image is too large: 512 px a side at most. Shrink it and choose again.';
+
+  @override
+  String get workshopPublishCoverUnreadable => 'Couldn\'t read this image. Try another.';
+
+  @override
+  String get workshopPublishReviewPreviewIdle => 'First idle frame';
+
+  @override
+  String get workshopPublishReviewPreviewNone => 'No preview';
+
+  @override
+  String get workshopPublishErrorPreviewPet =>
+      'This pet\'s frame is larger than 512 px, so it can\'t have a preview. Turn the preview off to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewConflict =>
+      'The companion\'s package already has a preview.png, so the cover can\'t be added. Remove the cover to submit as usual.';
+
+  @override
+  String get workshopPublishErrorPreviewMissing =>
+      'The preview to use wasn\'t found. Choose it again, or submit without one.';
+
+  @override
+  String get workshopPublishErrorPreviewUnsupported =>
+      'This Workshop isn\'t taking previews right now. Submit without one as usual.';
+
+  @override
+  String get workshopPublishLetGo => 'Let go of this record';
+
+  @override
+  String get workshopPublishLetGoTitle => 'Let go of this phone\'s record?';
+
+  @override
+  String workshopPublishLetGoAccount(String worker) {
+    return 'Only this phone\'s unfinished record for this GitHub account at Workshop $worker is removed.';
+  }
+
+  @override
+  String workshopPublishLetGoAll(String worker) {
+    return 'The submission records on this phone can\'t be read as a whole. Letting go removes the unfinished-submission records of every account on this phone, not just the one for this GitHub account at Workshop $worker.';
+  }
+
+  @override
+  String get workshopPublishLetGoFacts =>
+      'The Workshop isn\'t told to cancel: if it already received this submission, it stays there and shows under My uploads. If it didn\'t, you\'ll need to submit again, and if it did arrive after all there will be two.';
+
+  @override
+  String get workshopPublishLetGoFactsKnown =>
+      'The Workshop isn\'t told to cancel: its result stays as it is, and this submission is still under My uploads.';
+
+  @override
+  String get workshopPublishLetGoConfirm => 'Let go';
+
+  @override
+  String get workshopPublishLetGoDone => 'This phone\'s record was let go';
+
+  @override
+  String get workshopPublishLetGoStale => 'The record just changed. Tap again to confirm it anew.';
+
+  @override
+  String get workshopPublishLetGoUnsupported => 'This version can\'t let go of the record here.';
 
   @override
   String get workspaceRecoveryTitle => 'Workspace index recovery';
