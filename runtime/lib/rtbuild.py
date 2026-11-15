@@ -364,9 +364,10 @@ def select_dsh_patches(pins, directory, target):
         sys.exit("pins.json patches must be an object")
     if set(pins["patches"]) - present:
         sys.exit("pins.json contains patch entries absent from the declared files")
-    # Preserve main's Android filename order. OH declares the complete common
-    # chain first, then its overlays, whose names may sort before newer main diffs.
-    names = sorted(sets[target]) if target == "android" else list(sets[target])
+    # Both targets declare their application order explicitly: shared patches
+    # first, then target-specific overlays. Sorting by filename would reorder
+    # patches that touch the same file and break their pinned hash chain.
+    names = list(sets[target])
     if not names:
         sys.exit("no patches configured for target " + target)
     return names, sorted(present)

@@ -89,7 +89,7 @@
  				} catch (error) {
  					if (isLockContention(error)) throw new SessionAlreadyOwnedError(id);
  					throw error;
-@@ -2037,7 +2098,8 @@
+@@ -2038,7 +2038,8 @@
  		throw error;
  	}
  	try {
@@ -97,15 +97,15 @@
 +		if (internals.platform === "openharmony") await publishOhosExclusive(staged, currentPath, internals.fs);
 +		else await internals.fs.link(staged, currentPath);
  	} catch (error) {
- 		/* v8 ignore else -- a non-collision filesystem error propagates unchanged. */
  		if (isEEXIST(error)) return false;
-@@ -3238,7 +3300,8 @@
- 		const tmp = await this.writeSyncedTempFile(finalPath, content);
+ 		if (error?.code !== "EPERM" && error?.code !== "EACCES") throw error;
+@@ -3284,7 +3285,8 @@
  		let linked = false;
  		try {
--			await link(tmp, finalPath);
-+			if (process.platform === "openharmony") await publishOhosExclusive(tmp, finalPath);
-+			else await link(tmp, finalPath);
- 			linked = true;
- 		} finally {
- 			/* v8 ignore next -- link failure is the TOCTOU/IO race guarded above; not reachable in test */
+ 			try {
+-				await link(tmp, finalPath);
++				if (process.platform === "openharmony") await publishOhosExclusive(tmp, finalPath);
++				else await link(tmp, finalPath);
+ 			} catch (error) {
+ 				if (error?.code !== "EACCES" && error?.code !== "EPERM") throw error;
+ 				// Current first publishers hold the mutation lease. Keep link's

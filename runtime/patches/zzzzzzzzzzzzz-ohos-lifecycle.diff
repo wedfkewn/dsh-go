@@ -13,7 +13,7 @@
  }
  /** Drives one session through turn and step boundaries. */
  var ReactLoopAgent = class {
-@@ -715,6 +720,10 @@
+@@ -718,6 +718,10 @@
  		/* v8 ignore next -- private callers establish the running phase before proposing a step */
  		if (this.phase.kind !== "running") throw new Error(`agent "${this.id}": pre-step outside running phase`);
  		const signal = this.phase.abort.signal;
@@ -22,12 +22,12 @@
 +			await lifecycle.gate(this.session.id, signal);
 +		}
  		const claimed = this.inbox.claim(target, position.turn);
+ 		const recall = await dshGoRecall.prepare(this.loopCtx, this, position, claimed, signal);
  		const selection = this.model.current();
- 		if (selection === void 0) throw new Error(`agent "${this.id}" has no provider/model: set AgentOptions.provider and AgentOptions.model or record a model selection`);
-@@ -1819,8 +1828,14 @@
- 					const coldRead = await handle.read(0, void 0, { signal: fused });
+@@ -1833,8 +1833,14 @@
  					fused.throwIfAborted();
  					const persisted = coldRead.events;
+ 					dshGoRecall.guardSession(this.runtime.ctx, { sessionId: id, operation: "resume", recallHistory: dshGoRecall.hasHistory(persisted) });
 -					const closers = interruptedTurnClosers(persisted);
 +					const lifecycle = ohosLifecycle();
 +					const originalClosers = interruptedTurnClosers(persisted);
@@ -191,7 +191,7 @@
  		throw schedulerFailure.error;
  	}
  	if (aborted) {
-@@ -193,10 +211,10 @@
+@@ -219,12 +219,12 @@
  			arguments: block.arguments
  		}).seq;
  	}
@@ -199,8 +199,10 @@
 +	commit(block, result, callSeq, durableSessionData) {
  		if (this.input.log !== void 0) {
  			const { agent, log: { turn, step } } = this.input;
--			agent.session.append("tool/result", {
-+			agent.session.append("tool/result", durableSessionData ?? {
+ 			const session = agent.session;
+ 			result = this.companionResults?.beforeCommit(agent, session, block, result) ?? result;
+-			const event = session.append("tool/result", {
++			const event = session.append("tool/result", durableSessionData ?? {
  				turn,
  				step,
  				message: createToolResultMessage({
