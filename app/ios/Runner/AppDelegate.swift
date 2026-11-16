@@ -57,6 +57,9 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DshPetLiveActivity") {
+      PetLiveActivityPlugin.register(with: registrar)
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DshPlugin") {
       DshPlugin.register(with: registrar)
       IOSPhoneControl.shared.register(messenger: registrar.messenger())

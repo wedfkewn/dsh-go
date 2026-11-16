@@ -1149,11 +1149,20 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
       return DshUiReplyChip(label: label, pending: true);
     }
     final chat = ref.read(chatProvider(widget.sessionId).notifier);
+    // An idle send enters next-turn before the Host starts and claims its
+    // first step. The new running status doesn't mean it waits another turn.
+    final startingTurn =
+        _running &&
+        prompt.mode == SendMode.now &&
+        prompt.slot == InboxSlot.nextTurn &&
+        (_builtState?.runningTurn?.steps ?? 0) == 0 &&
+        _builtState?.pending.where((p) => p.slot == InboxSlot.nextTurn).firstOrNull == prompt;
     final (label, icon) = switch ((prompt.slot, prompt.mode)) {
       // In the inbox with no turn to take it: stopped elsewhere, or before
       // this app looked.
       (_?, _) when !_running => (appL10n.chatUnsent, AppIcons.paused),
       (InboxSlot.nextStep, _) => (appL10n.chatSteerNextStep, AppIcons.steer),
+      (InboxSlot.nextTurn, _) when startingTurn => (appL10n.chatSending, AppIcons.queued),
       (InboxSlot.nextTurn, _) => (appL10n.chatQueuedAfterTurn, AppIcons.queued),
       (null, SendMode.steer) => (appL10n.chatSteering, AppIcons.steer),
       (null, SendMode.queue) => (appL10n.chatQueued, AppIcons.queued),
@@ -1168,9 +1177,9 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
       pendingIcon: prompt.failed ? AppIcons.error : icon,
       pendingActions: [
         if (prompt.failed && prompt.resendable) (appL10n.chatEditFailedSubmission, () => _editFailedSubmission(prompt)),
-        if (canAct && prompt.resendable && widget.onSendNow != null)
+        if (canAct && !startingTurn && prompt.resendable && widget.onSendNow != null)
           (_running ? appL10n.chatSendNow : appL10n.commonSend, () => widget.onSendNow!(prompt)),
-        if (canAct && _running && prompt.slot == InboxSlot.nextTurn)
+        if (canAct && !startingTurn && _running && prompt.slot == InboxSlot.nextTurn)
           (appL10n.chatSwitchToSteer, () => chat.steerQueued(prompt)),
         if (canAct && widget.onWithdraw != null) (appL10n.chatWithdraw, () => widget.onWithdraw!(prompt)),
       ],

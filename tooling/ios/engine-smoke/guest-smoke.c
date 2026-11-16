@@ -8,6 +8,7 @@
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 typedef int (*StartFn)(const char*, const char*, const char*, const char*, const char*, const char*, int, const char**,
                        const char**, char**, char**);
 typedef void (*StopFn)(void);
+typedef void (*ObserveLifecycleFn)(uint64_t, int, int);
 typedef char* (*TextFn)(void);
 typedef void (*FreeFn)(char*);
 
@@ -135,6 +137,9 @@ int main(int argc, char** argv) {
   snprintf(library, sizeof library, "%s/DshNodeHost.framework/DshNodeHost", argv[1]);
   void* host = dlopen(library, RTLD_NOW | RTLD_GLOBAL);
   if (host == NULL) die("dlopen", dlerror());
+  ObserveLifecycleFn observe = (ObserveLifecycleFn)dlsym(host, "dsh_ios_observe_lifecycle");
+  if (!observe) die("dlsym lifecycle", dlerror());
+  observe(1, 1, 0);
   guest_config = (int (*)(int, const char*))dlsym(host, "dsh_host_guest_config");
   if (!guest_config) die("guest config", "host lacks I4 setter");
   start_engine = (StartFn)dlsym(host, "dsh_host_start");

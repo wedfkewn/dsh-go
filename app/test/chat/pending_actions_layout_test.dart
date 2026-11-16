@@ -52,6 +52,41 @@ void _visible(WidgetTester tester, Finder finder, double width) {
 
 void main() {
   setUpAll(loadTestFonts);
+
+  testWidgets('a prompt opening an idle turn is shown as sending until its echo', (tester) async {
+    final h = PendingNoticeHarness();
+    addTearDown(h.dispose);
+    await h.mount(tester);
+    h.snapshot([]);
+    await h.settle(tester);
+    expect(h.state.running, isFalse);
+    expect(await h.chat.send('Start a new turn'), isTrue);
+    final requestId = h.client.sent.single.requestId;
+    final message = pendingMessage(
+      id: 'first-prompt',
+      text: 'Start a new turn',
+      source: {'kind': 'user', 'rpcId': requestId},
+    );
+
+    // The same inbox slot is used for a new turn and for a queued followup.
+    h.splice([message], slot: 'next-turn');
+    h.running(true);
+    h.log('turn/start', {'turn': 1});
+    await h.settle(tester);
+    expect(find.text(appL10n.chatSending), findsOneWidget);
+    expect(find.text(appL10n.chatQueuedAfterTurn), findsNothing);
+    expect(find.text(appL10n.chatSwitchToSteer), findsNothing);
+    expect(find.text(appL10n.chatSendNow), findsNothing);
+
+    h.splice([], slot: 'next-turn', removed: 1);
+    h.log('user/message', message);
+    await h.settle(tester);
+    await h.settle(tester);
+    expect(h.state.pending, isEmpty);
+    expect(find.text('Start a new turn'), findsOneWidget);
+    expect(find.text(appL10n.chatSending), findsNothing);
+  });
+
   for (final locale in [AppLocale.zhCN, AppLocale.en]) {
     for (final scale in [1.3, 2.0]) {
       testWidgets('queued actions remain readable and tappable at 320dp: $locale $scale', (tester) async {

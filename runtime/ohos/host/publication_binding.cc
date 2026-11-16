@@ -28,6 +28,7 @@
 #include <linux/fs.h>
 #endif
 #include <string>
+#include <mutex>
 #include <sys/file.h>
 #if !defined(__APPLE__)
 #include <sys/syscall.h>
@@ -35,6 +36,30 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 #include <vector>
+
+#if defined(DSH_IOS_HOST)
+namespace {
+std::mutex ios_lifecycle_mutex;
+DshHostLifecycleSnapshotV1 ios_lifecycle{};
+thread_local bool ios_lifecycle_owner = false;
+constexpr uint32_t kSystemManagedContinuation = 7;
+}
+
+void BindIOSLifecycleThread() { ios_lifecycle_owner = true; }
+
+// Only the native iOS application publishes this state. The HTTP observation
+// remains a wake-up and acknowledgement, just as it is on HarmonyOS.
+extern "C" __attribute__((visibility("default")))
+void dsh_ios_observe_lifecycle(uint64_t revision, int foreground, int continued) {
+  std::lock_guard<std::mutex> lock(ios_lifecycle_mutex);
+  ios_lifecycle.size = sizeof(ios_lifecycle);
+  ios_lifecycle.version = 1;
+  ios_lifecycle.revision = revision;
+  ios_lifecycle.available = 1;
+  ios_lifecycle.foreground = foreground != 0 || continued != 0;
+  ios_lifecycle.phase = continued != 0 ? kSystemManagedContinuation : 0;
+}
+#endif
 
 namespace {
 
@@ -386,9 +411,22 @@ struct LifecycleReader {
 LifecycleReader& HostReader() { static LifecycleReader reader; return reader; }
 
 napi_value GetHostLifecycleSnapshot(napi_env env, napi_callback_info) {
-  if (std::this_thread::get_id() != HostReader().thread) {
+#if defined(DSH_IOS_HOST)
+  const bool owner = ios_lifecycle_owner;
+#else
+  const bool owner = std::this_thread::get_id() == HostReader().thread;
+#endif
+  if (!owner) {
     napi_throw_error(env,"ERR_OHOS_LIFECYCLE_MAIN_THREAD","Host lifecycle belongs to the main engine");return nullptr;
   }
+  DshHostLifecycleSnapshotV1 data{};
+#if defined(DSH_IOS_HOST)
+  {
+    std::lock_guard<std::mutex> lock(ios_lifecycle_mutex);
+    data = ios_lifecycle;
+  }
+  data.now_ms = static_cast<int64_t>(uv_hrtime() / 1000000);
+#else
   if (!HostReader().read && !HostReader().library.empty()) {
     // Never load another owner. This must resolve the Ark module already hosting this engine.
     void* handle=dlopen(HostReader().library.c_str(),RTLD_NOW|RTLD_NOLOAD|RTLD_LOCAL);
@@ -401,8 +439,11 @@ napi_value GetHostLifecycleSnapshot(napi_env env, napi_callback_info) {
       } else dlclose(handle);
     }
   }
-  DshHostLifecycleSnapshotV1 data{};
-  if(!HostReader().read || HostReader().read(&data,sizeof(data))!=0 || data.version!=1 || data.size!=sizeof(data) ||
+  if (!HostReader().read || HostReader().read(&data, sizeof(data)) != 0) {
+    napi_throw_error(env,"ERR_OHOS_LIFECYCLE_NATIVE","Trusted host lifecycle snapshot unavailable");return nullptr;
+  }
+#endif
+  if(data.version!=1 || data.size!=sizeof(data) ||
       data.engine_generation>9007199254740991ULL || data.owner_generation>9007199254740991ULL ||
       data.revision>9007199254740991ULL || data.grant_generation>9007199254740991ULL ||
       data.now_ms>9007199254740991LL || data.deadline_ms>9007199254740991LL || data.drain_at_ms>9007199254740991LL) {
@@ -450,7 +491,7 @@ napi_value PhoneCall(napi_env env,napi_callback_info info) {
   const auto operation=static_cast<uint32_t>(reinterpret_cast<uintptr_t>(data));
   // This also performs the main-registration-thread and fixed NOLOAD checks.
   if(!GetHostLifecycleSnapshot(env,nullptr))return nullptr;
-  if(!HostReader().phone) {
+  if(!HostReader().phone && HostReader().handle) {
     auto call=reinterpret_cast<DshHostPhoneV1>(dlsym(HostReader().handle,"dsh_host_phone_v1"));
     Dl_info symbol{};char actual[PATH_MAX];
     if(call&&dladdr(reinterpret_cast<void*>(call),&symbol)&&symbol.dli_fname&&

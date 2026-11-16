@@ -45,14 +45,21 @@ fixture = r'''
 @main struct BackgroundFixture {
   static func main() throws {
     let queue = DispatchQueue(label: "engine-background-fixture")
-    let lifecycle = EngineLifecycle(queue: queue, changed: {}, lostServer: {})
+    var nativeObservation: (Int, Bool, Bool)?
+    let lifecycle = EngineLifecycle(
+      queue: queue, publishNative: { nativeObservation = ($0, $1, $2) },
+      changed: {}, lostServer: {})
     func phase(_ name: String, _ change: () -> Void) throws {
       queue.sync(execute: change)
       let deadline = Date().addingTimeInterval(5)
       while Date() < deadline {
-        let state = queue.sync { lifecycle.status() }
+        let (state, native) = queue.sync { (lifecycle.status(), nativeObservation) }
         if let revision = state["revision"] as? Int,
            state["acknowledgedRevision"] as? Int == revision {
+          guard let native, native.0 == revision, native.1 == state["foreground"] as? Bool,
+            native.2 == state["continued"] as? Bool else {
+            throw NSError(domain: "native-observation", code: 1)
+          }
           let data = try JSONSerialization.data(withJSONObject: ["name": name, "revision": revision])
           print(String(decoding: data, as: UTF8.self))
           return
@@ -61,7 +68,10 @@ fixture = r'''
       }
       throw NSError(domain: "background-fixture", code: 1)
     }
-    try phase("background-idle") { lifecycle.runtime(baseUrl: CommandLine.arguments[1], token: "synthetic") }
+    try phase("background-idle") {
+      lifecycle.publishCurrentObservation()
+      lifecycle.runtime(baseUrl: CommandLine.arguments[1], token: "synthetic")
+    }
     try phase("pip") { lifecycle.observe(pictureInPicture: true) }
     try phase("both") { lifecycle.observe(continued: true) }
     try phase("continued-survives-pip-stop") { lifecycle.observe(pictureInPicture: false) }

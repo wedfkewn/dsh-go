@@ -187,6 +187,7 @@ void* RunOnEngineThread(void* raw) {
       run->finished_changed.notify_one();
     }
   } finished{run};
+  BindIOSLifecycleThread();
   if (!initialization) {
     dsh_ios::RegisterActivityClockBinding();
     dsh_ios::guest_config::Register();

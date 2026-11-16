@@ -120,6 +120,13 @@
 				);
 			};
 		};
+		4728DB57F3CD1C364070AFD0 /* PetLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D23E3FBF909A3D28B7317F4C /* PetLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0010E0FDE940E7200DF96F3A /* PetLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1157E1453906D5AABEAA30E8 /* PetLiveActivityPlugin.swift */; };
+		9DA4CCD005F1478331AD7A43 /* PetActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D877E0F531097F288C739C49 /* PetActivityAttributes.swift */; };
+		96A67D6348E9EF40D67E1114 /* PetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 735E2282E0F893677524A2E3 /* PetLiveActivity.swift */; };
+		DCBF4C4331CDEE8174EB4A9B /* PetActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D877E0F531097F288C739C49 /* PetActivityAttributes.swift */; };
+		7DA7F4A913154B857347B485 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49D5A70C75C310CD8E17CCA9 /* Foundation.framework */; };
+		E1A000000000000000000002 /* pets in Resources */ = {isa = PBXBuildFile; fileRef = E1A000000000000000000001 /* pets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -144,6 +151,13 @@
 			remoteInfo = CompanionWidget;
 			proxyType = 1;
 		};
+		42CE48966714EDECDE0508AE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 402C135859C45FD1BEDEFEA8;
+			remoteInfo = PetLiveActivity;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -163,6 +177,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				4728DB57F3CD1C364070AFD0 /* PetLiveActivity.appex in Embed Foundation Extensions */,
 				D55100000000000000000015,
 				D5480000000000000000B008 /* ShareExtension.appex in Embed Foundation Extensions */,
 			);
@@ -309,6 +324,14 @@
 			sourceTree = "<group>";
 		};
 		D55200000000000000000001 /* ShareExtension.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ShareExtension.xcconfig; sourceTree = "<group>"; };
+		D23E3FBF909A3D28B7317F4C /* PetLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PetLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1157E1453906D5AABEAA30E8 /* PetLiveActivityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PetLiveActivityPlugin.swift; sourceTree = "<group>"; };
+		D877E0F531097F288C739C49 /* PetActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PetActivityAttributes.swift; sourceTree = "<group>"; };
+		735E2282E0F893677524A2E3 /* PetLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PetLiveActivity.swift; sourceTree = "<group>"; };
+		E1A000000000000000000001 /* pets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = pets; path = ../assets/pets; sourceTree = SOURCE_ROOT; };
+		A0F3B61ECA828CAEA9BB4D1D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D1D21B17EAC0DD900AC3A6B5 /* PetLiveActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = PetLiveActivity.entitlements; sourceTree = "<group>"; };
+		49D5A70C75C310CD8E17CCA9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -333,6 +356,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18F2E1E8D7F3A9E645FF21D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7DA7F4A913154B857347B485 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -390,6 +421,8 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
+				066A36D0537A8B5A233719F0 /* Shared */,
+				4703BE5643C8BB2DF1B58B1C /* PetLiveActivity */,
 				D55100000000000000000010,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
@@ -403,6 +436,7 @@
 		97C146EF1CF9000F007C117D /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				D23E3FBF909A3D28B7317F4C /* PetLiveActivity.appex */,
 				D55100000000000000000004,
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
@@ -415,6 +449,7 @@
 		97C146F01CF9000F007C117D /* Runner */ = {
 			isa = PBXGroup;
 			children = (
+				1157E1453906D5AABEAA30E8 /* PetLiveActivityPlugin.swift */,
 				D55100000000000000000003,
 				A08400000000000000000001 /* UnicodeData-LICENSE.txt */,
 				D55000000000000000000300 /* IOSPhonePairingStore.swift */,
@@ -503,6 +538,27 @@
 			);
 			sourceTree = "<group>";
 		};
+		066A36D0537A8B5A233719F0 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D877E0F531097F288C739C49 /* PetActivityAttributes.swift */,
+			);
+			name = Shared;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		4703BE5643C8BB2DF1B58B1C /* PetLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				735E2282E0F893677524A2E3 /* PetLiveActivity.swift */,
+				E1A000000000000000000001 /* pets */,
+				A0F3B61ECA828CAEA9BB4D1D /* Info.plist */,
+				D1D21B17EAC0DD900AC3A6B5 /* PetLiveActivity.entitlements */,
+			);
+			name = PetLiveActivity;
+			path = PetLiveActivity;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -555,6 +611,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				FE9B77C148A919F852F6C4CA /* PBXTargetDependency */,
 				D55100000000000000000017,
 				D5480000000000000000B015 /* PBXTargetDependency */,
 			);
@@ -600,6 +657,23 @@
 			buildRules = (
 			);
 		};
+		402C135859C45FD1BEDEFEA8 /* PetLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24A4E0F2EE54B024CFB70A06 /* Build configuration list for PBXNativeTarget "PetLiveActivity" */;
+			buildPhases = (
+				0B0694A1901A66CFC914D2F6 /* Sources */,
+				18F2E1E8D7F3A9E645FF21D2 /* Frameworks */,
+				D795A43515A58FC7AE953175 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PetLiveActivity;
+			productName = PetLiveActivity;
+			productReference = D23E3FBF909A3D28B7317F4C /* PetLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -637,6 +711,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				402C135859C45FD1BEDEFEA8 /* PetLiveActivity */,
 				D55100000000000000000020,
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
@@ -680,6 +755,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D795A43515A58FC7AE953175 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1A000000000000000000002 /* pets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -727,7 +810,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+			shellScript = "/bin/sh \"$SRCROOT/scripts/xcode_backend.sh\" embed_and_thin";
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -742,7 +825,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "/bin/sh \"$SRCROOT/scripts/xcode_backend.sh\" build";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -790,6 +873,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0010E0FDE940E7200DF96F3A /* PetLiveActivityPlugin.swift in Sources */,
+				9DA4CCD005F1478331AD7A43 /* PetActivityAttributes.swift in Sources */,
 				D55100000000000000000013,
 				D55100000000000000000011,
 				D55000000000000000000301 /* IOSPhonePairingStore.swift in Sources */,
@@ -862,6 +947,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0B0694A1901A66CFC914D2F6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				96A67D6348E9EF40D67E1114 /* PetLiveActivity.swift in Sources */,
+				DCBF4C4331CDEE8174EB4A9B /* PetActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -879,6 +973,12 @@
 			isa = PBXTargetDependency;
 			target = D55100000000000000000020;
 			targetProxy = D55100000000000000000016;
+		};
+		FE9B77C148A919F852F6C4CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PetLiveActivity;
+			target = 402C135859C45FD1BEDEFEA8 /* PetLiveActivity */;
+			targetProxy = 42CE48966714EDECDE0508AE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1423,6 +1523,86 @@
 			};
 			name = Profile;
 		};
+		416CBBDAA341ED30830C7AE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PetLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshgo.PetLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F0CC739984A806EAD2654BDB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PetLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshgo.PetLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D7617B52CF4E0D65493AFE34 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = PetLiveActivity/PetLiveActivity.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PetLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ccch1mneyyy.dshgo.PetLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1485,6 +1665,16 @@
 				D55100000000000000000026,
 				D55100000000000000000027,
 			);
+		};
+		24A4E0F2EE54B024CFB70A06 /* Build configuration list for PBXNativeTarget "PetLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				416CBBDAA341ED30830C7AE6 /* Release */,
+				F0CC739984A806EAD2654BDB /* Debug */,
+				D7617B52CF4E0D65493AFE34 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 

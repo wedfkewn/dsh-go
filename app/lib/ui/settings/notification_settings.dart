@@ -28,7 +28,7 @@ mixin _RefreshOnResume<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         ref.invalidate(liveSystemStatusProvider);
         // 实时活动 may have just been allowed there: offer the running activity
         // again (the native side posts nothing new if it already shows it).
-        unawaited(ref.read(notifyChannelProvider).live(ref.read(livePushProvider)));
+        if (!iosLiveActivities) unawaited(ref.read(notifyChannelProvider).live(ref.read(livePushProvider)));
       },
     );
   }
@@ -182,7 +182,7 @@ class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsP
   );
 
   Future<void> _openLive() async {
-    final opened = await ref.read(notifyChannelProvider).openLiveSettings();
+    final opened = await openLiveActivitySettings(ref);
     if (!mounted) return;
     _readAgainOnHarmony();
     if (!opened) _settingsFailed();
@@ -260,25 +260,23 @@ class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsP
           ],
         ),
         if (liveBlocked) _liveNote(),
-        // iOS has them, this app doesn't yet: nothing to switch on.
-        if (!wordsForIos)
-          SettingsSection(
-            title: ohos ? l10n.harmonyLiveTitle : l10n.liveSettingsTitle,
-            footer: Text(ohos ? l10n.harmonyLiveFooter : l10n.liveSettingsFooter),
-            children: [
-              SettingsSwitchTile(
-                spot: Spots.notifyLive,
-                title: ohos ? l10n.harmonyLiveSwitch : null,
-                subtitle: ohos
-                    ? (liveSupported ? l10n.harmonyLiveSubtitle : l10n.harmonyLiveUnavailable)
-                    : liveSupported
-                    ? l10n.liveSettingsSubtitle
-                    : l10n.liveUnsupported,
-                value: prefs.live && liveSupported,
-                onChanged: on && liveSupported ? (v) => unawaited(notifier.setLive(v)) : null,
-              ),
-            ],
-          ),
+        SettingsSection(
+          title: ohos ? l10n.harmonyLiveTitle : l10n.liveSettingsTitle,
+          footer: iosLiveActivities ? null : Text(ohos ? l10n.harmonyLiveFooter : l10n.liveSettingsFooter),
+          children: [
+            SettingsSwitchTile(
+              spot: Spots.notifyLive,
+              title: ohos ? l10n.harmonyLiveSwitch : null,
+              subtitle: ohos
+                  ? (liveSupported ? l10n.harmonyLiveSubtitle : l10n.harmonyLiveUnavailable)
+                  : liveSupported
+                  ? l10n.liveSettingsSubtitle
+                  : l10n.liveUnsupported,
+              value: prefs.live && liveSupported,
+              onChanged: on && liveSupported ? (v) => unawaited(notifier.setLive(v)) : null,
+            ),
+          ],
+        ),
         SettingsSection(
           title: l10n.pluginsSystemSettings,
           // Android posts a public version for the lock screen; here the real text goes to the system.

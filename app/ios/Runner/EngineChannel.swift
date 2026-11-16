@@ -81,7 +81,9 @@ private final class NativeEngine {
     UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
   ) -> Int32
   private typealias GuestConfig = @convention(c) (Int32, UnsafePointer<CChar>) -> Int32
+  private typealias ObserveLifecycle = @convention(c) (UInt64, Int32, Int32) -> Void
   private let guestConfig: GuestConfig
+  private let observeLifecycle: ObserveLifecycle
   private typealias Stop = @convention(c) () -> Void
   private typealias Text = @convention(c) () -> UnsafeMutablePointer<CChar>?
   private typealias Free = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
@@ -112,6 +114,7 @@ private final class NativeEngine {
       return unsafeBitCast(found, to: type)
     }
     guestConfig = try symbol("dsh_host_guest_config", as: GuestConfig.self)
+    observeLifecycle = try symbol("dsh_ios_observe_lifecycle", as: ObserveLifecycle.self)
     start = try symbol("dsh_host_start", as: Start.self)
     stopEngine = try symbol("dsh_host_stop", as: Stop.self)
     state = try symbol("dsh_host_state", as: Text.self)
@@ -157,6 +160,10 @@ private final class NativeEngine {
   }
 
   func stop() { stopEngine() }
+
+  func publishLifecycle(revision: Int, foreground: Bool, continued: Bool) {
+    observeLifecycle(UInt64(revision), foreground ? 1 : 0, continued ? 1 : 0)
+  }
 
   func currentState() -> [String: Any] { (read(state) as? [String: Any]) ?? [:] }
 
@@ -294,6 +301,7 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
   private var failures = 0
 
   private let queue: DispatchQueue
+  private let publishNative: (Int, Bool, Bool) -> Void
   private let changed: () -> Void
   private let lostServer: () -> Void
   private lazy var session: URLSession = {
@@ -307,8 +315,12 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     return URLSession(configuration: configuration, delegate: self, delegateQueue: delegateQueue)
   }()
 
-  init(queue: DispatchQueue, changed: @escaping () -> Void, lostServer: @escaping () -> Void) {
+  init(
+    queue: DispatchQueue, publishNative: @escaping (Int, Bool, Bool) -> Void,
+    changed: @escaping () -> Void, lostServer: @escaping () -> Void
+  ) {
     self.queue = queue
+    self.publishNative = publishNative
     self.changed = changed
     self.lostServer = lostServer
   }
@@ -324,6 +336,7 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     resetRetry()
     self.foreground = foreground
     revision += 1
+    publishCurrentObservation()
     failures = 0
     push()
   }
@@ -334,6 +347,7 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     resetRetry()
     continuedProcessing = continued
     revision += 1
+    publishCurrentObservation()
     failures = 0
     push()
   }
@@ -343,8 +357,13 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     resetRetry()
     self.pictureInPicture = pictureInPicture
     revision += 1
+    publishCurrentObservation()
     failures = 0
     push()
+  }
+
+  func publishCurrentObservation() {
+    publishNative(revision, foreground, continued)
   }
 
   func runtime(baseUrl: String?, token: String?) {
@@ -504,6 +523,9 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   private var skillOwner: EngineSkills.Owner?
   private lazy var lifecycle = EngineLifecycle(
     queue: queue,
+    publishNative: { [weak self] revision, foreground, continued in
+      self?.native?.publishLifecycle(revision: revision, foreground: foreground, continued: continued)
+    },
     changed: { [weak self] in self?.lifecycleChanged() },
     lostServer: { [weak self] in self?.restartAfterLostServer() })
 
@@ -1035,6 +1057,7 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       }
       try writeInstructions(visualReplies: visualReplies)
       if native == nil { native = try NativeEngine() }
+      lifecycle.publishCurrentObservation()
       for (key, value) in environment where key.uppercased().range(of: "KEY|TOKEN|SECRET|PASSWORD", options: .regularExpression) != nil {
         rememberSecret(value)
       }

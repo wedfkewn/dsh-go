@@ -6,6 +6,7 @@
 // Prints each host event as a JSON line. A file named `restart` in the guest root makes
 // it stop the engine and start it again in this process; `quit` ends the run.
 #include <dlfcn.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 typedef int (*StartFn)(const char*, const char*, const char*, const char*, const char*, const char*, int, const char**,
                        const char**, char**, char**);
 typedef void (*StopFn)(void);
+typedef void (*ObserveLifecycleFn)(uint64_t, int, int);
 typedef char* (*TextFn)(void);
 typedef void (*FreeFn)(char*);
 
@@ -98,6 +100,9 @@ int main(int argc, char** argv) {
   snprintf(library, sizeof library, "%s/DshNodeHost.framework/DshNodeHost", argv[1]);
   void* host = dlopen(library, RTLD_NOW | RTLD_GLOBAL);
   if (host == NULL) die("dlopen", dlerror());
+  ObserveLifecycleFn observe = (ObserveLifecycleFn)dlsym(host, "dsh_ios_observe_lifecycle");
+  if (!observe) die("dlsym lifecycle", dlerror());
+  observe(1, 1, 0);
   start_engine = (StartFn)dlsym(host, "dsh_host_start");
   stop_engine = (StopFn)dlsym(host, "dsh_host_stop");
   host_state = (TextFn)dlsym(host, "dsh_host_state");
