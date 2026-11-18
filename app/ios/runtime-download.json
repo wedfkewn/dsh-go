@@ -1,9 +1,0 @@
-{
-  "schema": 1,
-  "url": "http://127.0.0.1:8787/runtime-b83ebb5c5dfc509bdcc2bafcd429efc934a980cea7dc267bcc632dff58219221.zip",
-  "sha256": "b83ebb5c5dfc509bdcc2bafcd429efc934a980cea7dc267bcc632dff58219221",
-  "bytes": 46070612,
-  "runtimeVersion": "ios-cb01f4f55378e578b4cf1b6e",
-  "dshVersion": "0.2.2-rc.1",
-  "nodeVersion": "24.22.1"
-}
