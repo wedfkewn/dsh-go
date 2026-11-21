@@ -1,0 +1,106 @@
+# Real SSH against a throwaway, unprivileged sshd on the runner: key and
+# passphrase authentication, host-key pinning, the direct-tcpip tunnel, SFTP, and
+# a PTY. Unlike the unit tests this drives a real server and a real terminal.
+#
+# The fixture probes whether this runner can allocate a pty. PTY may not skip its
+# way to a green run here: if the probe fails the job fails, and the same check
+# rejects a run where every test was skipped for a missing environment.
+name: SSH live
+
+on:
+  push:
+    branches: [main, 'feat/ssh-remote']
+    paths:
+      - 'app/lib/remote/**'
+      - 'app/lib/state/sftp_state.dart'
+      - 'app/lib/state/ssh_session_state.dart'
+      - 'app/lib/state/ssh_terminal_state.dart'
+      - 'app/lib/state/read_list_identity.dart'
+      - 'app/test/remote/**'
+      - 'tooling/ios/tests/ssh-live/**'
+      - 'packages/dartssh2/**'
+      - 'app/pubspec.yaml'
+      - 'app/pubspec.lock'
+      - '.github/workflows/ssh-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ssh-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FLUTTER_VERSION: 3.47.7
+      FLUTTER_SHA256: af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230
+      # test/flutter_test_config.dart loads the CJK faces for every test file.
+      DSH_TEST_FONT_DIR: /usr/share/fonts/opentype/noto
+      # The fixture exits non-zero when the pty probe fails, so a host that cannot
+      # allocate one fails this job instead of skipping the PTY cases.
+      DSH_APP_LIVE_SSHD_REQUIRE_PTY: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the SSH server and the fonts the tests load
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            openssh-server fonts-noto-cjk fonts-noto-cjk-extra
+          ls -l /usr/sbin/sshd "$(command -v sftp-server || echo /usr/lib/openssh/sftp-server)"
+
+      - name: Install Flutter
+        run: |
+          archive="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/$archive"
+          echo "$FLUTTER_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar xf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve dependencies
+        working-directory: app
+        run: |
+          flutter --version
+          flutter pub get --enforce-lockfile
+
+      - name: Run the live SSH, SFTP and PTY tests
+        run: |
+          # The fixture's own diagnostics (the pty probe, sshd's log) and the test
+          # output both land in one file, so a failure still leaves evidence behind.
+          # pipefail is explicit: without it tee's status would hide a failed fixture.
+          set -o pipefail
+          log="$RUNNER_TEMP/ssh-live.log"
+          status=0
+          bash tooling/ios/tests/ssh-live/with-sshd.sh -- bash -c '
+            set -u
+            for name in DSH_APP_LIVE_SSHD_PORT DSH_APP_LIVE_SSHD_KEY DSH_APP_LIVE_SSHD_USER \
+              DSH_APP_LIVE_SSHD_WORK DSH_APP_LIVE_SSHD_PASS_KEY DSH_APP_LIVE_SSHD_HOST_PUB; do
+              if [ -z "$(printenv "$name" || true)" ]; then
+                echo "::error title=ssh live::the fixture did not export $name; tests would silently skip"
+                exit 1
+              fi
+            done
+            cd app && flutter test --no-pub --reporter compact \
+              test/remote/live_ssh_transport_test.dart test/remote/live_sftp_pty_test.dart
+          ' 2>&1 | tee "$log" || status=$?
+          if grep -Eq "\+[0-9]+ ~[1-9]" "$log"; then
+            echo "::error title=ssh live::some tests were skipped; the live run has to exercise them all"
+            exit 1
+          fi
+          exit "$status"
+
+      - name: Keep the live test log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ssh-live-log
+          path: ${{ runner.temp }}/ssh-live.log
+          if-no-files-found: warn
+          retention-days: 7

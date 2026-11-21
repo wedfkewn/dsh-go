@@ -107,6 +107,17 @@ HostConnection? readListConnection(AsyncValue<HostConnection?> value, HostRef se
   return connection;
 }
 
+/// The connection a **write** may use: the selected host's own connection,
+/// never the 本机 fallback [activeConnectionProvider] exposes while a saved SSH
+/// host is missing. That fallback is for display only; a write through it
+/// would silently land on the local engine while the UI says "remote".
+///
+/// Unlike [readListLiveConnectionProvider] it keeps a client whose mux is
+/// reconnecting, so a local conversation can still send once the link is back.
+final activeWriteConnectionProvider = Provider<HostConnection?>((ref) {
+  return readListConnection(ref.watch(activeConnectionProvider), ref.watch(activeHostProvider));
+});
+
 /// RemoteConnectionController can retain its last client during reconnect.
 /// Observed mux loss therefore revokes the *live display authority* too.
 /// Listening to states does not open/start a client or the local engine.

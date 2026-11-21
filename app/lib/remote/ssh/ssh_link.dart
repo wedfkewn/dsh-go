@@ -4,10 +4,26 @@ import 'package:dsh_client/dsh_client.dart';
 
 import '../../l10n/l10n.dart';
 import '../link_status.dart';
+import 'dsh_discovery.dart';
 import 'local_forward.dart';
 import 'remote_bootstrap.dart';
 import 'ssh_host_config.dart';
+import 'ssh_session_capabilities.dart';
 import 'ssh_transport.dart';
+
+/// Which DSH a connected link is talking to. The workbench shows this so a
+/// person never has to guess whether they are on their own instance or one
+/// this app started.
+enum SshDshOwnership {
+  /// An instance the person already had; the app only forwards to it.
+  attached,
+
+  /// A managed instance this app started in this session.
+  managedStarted,
+
+  /// A managed instance this app started earlier and found still running.
+  managedReused,
+}
 
 /// What the person is asked on first contact with a host.
 class HostKeyPrompt {
@@ -95,6 +111,7 @@ class SshHostLink implements HostLink {
 
   final _statuses = StreamController<HostLinkStatus>.broadcast(sync: true);
   final _clients = StreamController<DshClient>.broadcast();
+  final _transports = StreamController<SshTransport>.broadcast(sync: true);
   final _delay = InterruptibleDelay();
   StreamSubscription<void>? _kickSub;
   StreamSubscription<DshConnectionState>? _muxSub;
@@ -113,6 +130,8 @@ class SshHostLink implements HostLink {
   bool _recovering = false;
   bool _needsRelogin = false;
   bool _forceRestart = false;
+  SshDshOwnership? _ownership;
+  bool _stoppedByUser = false;
 
   SshHostConfig get config => _config;
 
@@ -128,6 +147,24 @@ class SshHostLink implements HostLink {
   }
 
   RemoteDshEndpoint? get endpoint => _endpoint;
+
+  /// Which DSH this link reached; null before the first successful connect.
+  SshDshOwnership? get ownership => _ownership;
+
+  /// The person stopped the managed instance: nothing reconnects it until an
+  /// explicit retry or restart.
+  bool get stoppedByUser => _stoppedByUser;
+
+  /// This connection can serve SFTP / PTY right now.
+  bool get hasSftp => _sessions?.supportsSftp ?? false;
+  bool get hasPty => _sessions?.supportsPty ?? false;
+
+  SshSessionHost? get _sessions => _sessionHostOf(_transport);
+
+  /// `SshSessionHost` and `SshTransport` are unrelated interfaces, so `is`
+  /// alone cannot promote: the cast makes the capability explicit.
+  static SshSessionHost? _sessionHostOf(SshTransport? transport) =>
+      transport is SshSessionHost ? transport as SshSessionHost : null;
 
   /// The local forward port (null before the first tunnel).
   int? get localPort => _forwarder?.port;
@@ -147,6 +184,11 @@ class SshHostLink implements HostLink {
   @override
   Stream<DshClient> get clients => _clients.stream;
 
+  /// Fires with every authenticated SSH connection, including the one that
+  /// replaces a dropped link: long-lived pages (SFTP, PTY) rebind from it
+  /// instead of opening a second SSH connection.
+  Stream<SshTransport> get transports => _transports.stream;
+
   void _emit(HostLinkStatus next) {
     if (_closed && next.phase != HostLinkPhase.idle) return;
     _status = next;
@@ -156,6 +198,9 @@ class SshHostLink implements HostLink {
   @override
   Future<DshClient> open() {
     if (_closed) return Future.error(StateError('link closed'));
+    // Stopping a managed instance is a decision: only retry()/restartManaged()
+    // undo it, never the reconnect loop or a page rebuild.
+    if (_stoppedByUser) return Future.error(_stoppedError());
     final client = _client;
     if (client != null && _status.isConnected) return Future.value(client);
     return _opening ??= _openFirst().whenComplete(() => _opening = null);
@@ -249,11 +294,16 @@ class SshHostLink implements HostLink {
       final RemoteDshEndpoint endpoint;
       if (_config.dshMode == SshDshMode.attachOnly) {
         final token = secrets.attachToken?.trim();
-        if (_config.remotePort < 1 || _config.remotePort > 65535 || token == null || token.isEmpty) {
-          throw HostLinkError(HostLinkErrorKind.loginFailed, appL10n.remoteErrAttachSettings);
-        }
+        if (token == null || token.isEmpty) throw _attachSettingsError(SshAttachProblem.token);
+        final problem = _config.attachProblem(hasToken: true);
+        if (problem != null) throw _attachSettingsError(problem);
         // Attach-only never executes a remote command or touches managed state.
-        endpoint = RemoteDshEndpoint(port: _config.remotePort, token: token, reused: true);
+        endpoint = RemoteDshEndpoint(
+          port: _config.remotePort,
+          token: token,
+          reused: true,
+          host: _config.normalizedAttachHost,
+        );
       } else {
         endpoint = await RemoteDshBootstrap(
           transport,
@@ -267,12 +317,12 @@ class SshHostLink implements HostLink {
       }
       _checkOpen();
 
-      at(HostLinkStep.tunnel, detail: '127.0.0.1:${endpoint.port}');
+      at(HostLinkStep.tunnel, detail: endpoint.authority);
       try {
         // Destroy a late channel too: Future.timeout does not cancel the
         // underlying SSH channel-open request.
         await transport
-            .openTunnel('127.0.0.1', endpoint.port)
+            .openTunnel(endpoint.host, endpoint.port)
             .then((channel) => channel.destroy())
             .timeout(tunnelProbeTimeout);
       } catch (e) {
@@ -291,6 +341,11 @@ class SshHostLink implements HostLink {
       _checkOpen();
       final previous = _endpoint;
       _endpoint = endpoint;
+      _ownership = _config.dshMode == SshDshMode.attachOnly
+          ? SshDshOwnership.attached
+          : endpoint.reused
+          ? SshDshOwnership.managedReused
+          : SshDshOwnership.managedStarted;
       if (_forwarder == null) {
         final forwarder = await LocalForwarder.bind(_openChannel);
         if (_closed) {
@@ -327,7 +382,11 @@ class SshHostLink implements HostLink {
 
   Future<DshClient> _ensureClient(RemoteDshEndpoint endpoint, RemoteDshEndpoint? previous) async {
     final existing = _client;
-    final sameServer = previous != null && previous.port == endpoint.port && previous.token == endpoint.token;
+    final sameServer =
+        previous != null &&
+        previous.port == endpoint.port &&
+        previous.token == endpoint.token &&
+        previous.host == endpoint.host;
     if (existing != null && sameServer && !_needsRelogin) {
       // Same process behind the same port: the cookie still works and the mux
       // reconnects through the forwarder by itself. Skip its backoff.
@@ -387,7 +446,7 @@ class SshHostLink implements HostLink {
     if (transport == null || endpoint == null || !_status.isConnected) return;
     try {
       // A channel that opens after the timeout is still closed.
-      final probe = transport.openTunnel('127.0.0.1', endpoint.port).then((channel) => channel.destroy());
+      final probe = transport.openTunnel(endpoint.host, endpoint.port).then((channel) => channel.destroy());
       await probe.timeout(const Duration(seconds: 5));
     } catch (_) {
       if (!identical(transport, _transport)) return;
@@ -399,6 +458,7 @@ class SshHostLink implements HostLink {
   void _installTransport(SshTransport transport) {
     _transport = transport;
     if (!_ready.isCompleted) _ready.complete(transport);
+    _transports.add(transport);
     unawaited(
       transport.done.then((_) {
         if (identical(_transport, transport)) {
@@ -430,12 +490,12 @@ class SshHostLink implements HostLink {
     _checkOpen();
     final transport = _transport ?? await _ready.future.timeout(const Duration(seconds: 20));
     _checkOpen();
-    final port = _endpoint?.port;
-    if (port == null) throw StateError('no remote endpoint yet');
+    final remote = _endpoint;
+    if (remote == null) throw StateError('no remote endpoint yet');
     var abandoned = false;
     try {
       return await transport
-          .openTunnel('127.0.0.1', port)
+          .openTunnel(remote.host, remote.port)
           .then((channel) {
             if (abandoned || _closed || !identical(transport, _transport)) {
               channel.destroy();
@@ -487,7 +547,7 @@ class SshHostLink implements HostLink {
   }
 
   void _lost(HostLinkError reason) {
-    if (_closed || _recovering || _status.phase == HostLinkPhase.failed) return;
+    if (_closed || _recovering || _stoppedByUser || _status.phase == HostLinkPhase.failed) return;
     if (_status.phase != HostLinkPhase.connected) return;
     _teardownTransport();
     unawaited(_recover(reason).then((_) {}, onError: (_) {}));
@@ -498,7 +558,7 @@ class SshHostLink implements HostLink {
     _recovering = true;
     var last = reason;
     try {
-      while (!_closed) {
+      while (!_closed && !_stoppedByUser) {
         if (_backoff.exhausted) {
           final error = HostLinkError(
             last.kind,
@@ -549,12 +609,109 @@ class SshHostLink implements HostLink {
       return Future.error(StateError('attach-only cannot restart DSH'));
     }
     if (_opening != null || _recovering) return Future.error(StateError('link is busy'));
+    _stoppedByUser = false;
     _forceRestart = true;
     _needsRelogin = true;
     _teardownTransport();
     _emit(HostLinkStatus.idle);
     return open();
   }
+
+  /// Stops the managed instance this app started.
+  ///
+  /// Explicit user action, mirrored by the confirmation in the host sheet.
+  /// The link ends in [HostLinkPhase.failed] with a non-retryable error and
+  /// does not reconnect on its own: [retry] or [restartManaged] is the only
+  /// way back, so the reconnect loop can never start the instance again.
+  Future<void> stopManaged() async {
+    if (_config.dshMode != SshDshMode.managed) {
+      throw StateError('attach-only has no managed instance to stop');
+    }
+    if (_opening != null || _recovering) throw StateError('link is busy');
+    final transport = _transport;
+    if (transport == null || !_status.isConnected) throw StateError('link is not connected');
+    // Set the decision before the stop round trip: a keepalive loss or a
+    // network kick during those seconds would otherwise enter recovery and
+    // start a fresh instance behind the person's back.
+    _stoppedByUser = true;
+    try {
+      await RemoteDshBootstrap(
+        transport,
+        launchCommand: _config.launchCommand,
+        workingDirectory: _config.workingDirectory,
+        environment: remoteEnvironment,
+      ).stop();
+    } catch (error) {
+      // The stop itself failed, but it stays the person's decision: report the
+      // real error and leave the link stopped so nothing restarts it.
+      _ownership = null;
+      _teardownTransport();
+      _emit(
+        HostLinkStatus(
+          HostLinkPhase.failed,
+          completed: _status.completed,
+          error: error is HostLinkError
+              ? error
+              : HostLinkError(HostLinkErrorKind.other, appL10n.remoteStopManagedFailed, detail: '$error'),
+        ),
+      );
+      rethrow;
+    }
+    _ownership = null;
+    _teardownTransport();
+    _emit(
+      HostLinkStatus(
+        HostLinkPhase.failed,
+        completed: _status.completed,
+        error: _stoppedError(),
+      ),
+    );
+  }
+
+  /// Scans the server for an already running DSH. Explicit user action only;
+  /// see `discoverDshInstances` for what the script may read.
+  Future<List<RemoteDshInstance>> discoverDsh({Duration timeout = const Duration(seconds: 20)}) =>
+      withTransport((transport) => discoverDshInstances(transport, timeout: timeout));
+
+  /// Runs [body] with the current SSH connection, waiting (bounded) for a
+  /// reconnect when the link is between connections.
+  Future<T> withTransport<T>(
+    Future<T> Function(SshTransport transport) body, {
+    Duration wait = const Duration(seconds: 30),
+  }) async {
+    _checkOpen();
+    // A stopped instance never comes back through this path: pages fail fast
+    // instead of waiting out the reconnect window.
+    if (_stoppedByUser) throw _stoppedError();
+    final transport = _transport ?? await _ready.future.timeout(wait);
+    _checkOpen();
+    if (_stoppedByUser) throw _stoppedError();
+    if (transport.isClosed) throw StateError('SSH connection is closed');
+    return body(transport);
+  }
+
+  /// One SFTP session over the current connection. [StateError] when this
+  /// transport cannot serve it (relay hosts, test transports).
+  Future<SshFileSession> openSftpSession({Duration wait = const Duration(seconds: 30)}) =>
+      withTransport((transport) {
+        final host = _sessionHostOf(transport);
+        if (host == null || !host.supportsSftp) {
+          throw StateError('SFTP is not supported on this connection');
+        }
+        return host.openSftp();
+      }, wait: wait);
+
+  /// One interactive shell over the current connection.
+  Future<SshPtySession> openPtySession({
+    SshPtyOptions options = const SshPtyOptions(),
+    Duration wait = const Duration(seconds: 30),
+  }) => withTransport((transport) {
+    final host = _sessionHostOf(transport);
+    if (host == null || !host.supportsPty) {
+      throw StateError('PTY is not supported on this connection');
+    }
+    return host.openPty(options);
+  }, wait: wait);
 
   /// Kills the current SSH connection as if the network dropped (live tests).
   void debugDropTransport() => _transport?.close();
@@ -585,7 +742,8 @@ class SshHostLink implements HostLink {
         _backoff.reset();
         _delay.skip();
       case HostLinkPhase.failed:
-        if (_status.error?.retryable ?? false) retry();
+        // A network change never undoes a deliberate stop.
+        if (!_stoppedByUser && (_status.error?.retryable ?? false)) retry();
       case HostLinkPhase.idle || HostLinkPhase.connecting:
         break;
     }
@@ -594,6 +752,8 @@ class SshHostLink implements HostLink {
   @override
   void retry() {
     if (_closed || _status.isBusy && _status.phase != HostLinkPhase.reconnecting) return;
+    // An explicit retry is a new decision about a stopped instance.
+    _stoppedByUser = false;
     if (_status.phase == HostLinkPhase.reconnecting) {
       _backoff.reset();
       _delay.skip();
@@ -624,6 +784,31 @@ class SshHostLink implements HostLink {
     if (client != null) await client.close().catchError((_) {});
     await _statuses.close();
     await _clients.close();
+    await _transports.close();
+  }
+
+  HostLinkError _stoppedError() => HostLinkError(
+    HostLinkErrorKind.dshStartFailed,
+    appL10n.remoteErrDshStopped,
+  );
+
+  HostLinkError _attachSettingsError(SshAttachProblem problem) {
+    final detail = switch (problem) {
+      SshAttachProblem.target => 'attach target: ${_config.attachHost}',
+      SshAttachProblem.port => 'attach port: ${_config.remotePort}',
+      _ => null,
+    };
+    return HostLinkError(
+      switch (problem) {
+        SshAttachProblem.relativeWorkingDirectory => HostLinkErrorKind.other,
+        _ => HostLinkErrorKind.loginFailed,
+      },
+      switch (problem) {
+        SshAttachProblem.relativeWorkingDirectory => appL10n.remoteErrAbsolutePath,
+        _ => appL10n.remoteErrAttachSettings,
+      },
+      detail: detail,
+    );
   }
 }
 

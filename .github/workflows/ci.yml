@@ -7,7 +7,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, 'feat/ssh-remote']
   workflow_dispatch:
 
 permissions:
@@ -85,6 +85,11 @@ jobs:
           # Not --check: this also writes site/build/share, which the share worker builds from.
           python3 app/tool/make_replay_viewer.py
           git diff --exit-code -- app/lib/share_code/replay_viewer.g.dart
+      - name: Release workflow guards
+        # A green build must not publish an un-audited IPA, and the live SSH job
+        # must not pass by skipping its PTY cases. Both live in workflow text,
+        # which the compiler never reads.
+        run: python3 -B tooling/ios/tests/test-workflow-contracts.py
       - name: Python tooling
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"

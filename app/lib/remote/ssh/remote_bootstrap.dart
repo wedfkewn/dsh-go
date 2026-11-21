@@ -21,6 +21,7 @@ class RemoteDshEndpoint {
     this.reused = false,
     this.home,
     this.dshPath,
+    this.host = defaultAttachHost,
   });
 
   /// Port on the remote's loopback (`--host 127.0.0.1`).
@@ -40,8 +41,13 @@ class RemoteDshEndpoint {
   /// Resolved `dsh` binary (default command only).
   final String? dshPath;
 
-  /// `127.0.0.1:<port>`: the Host header DSH's fence accepts.
-  String get authority => '127.0.0.1:$port';
+  /// Address the SSH server dials to reach this endpoint: loopback for a
+  /// managed instance, the configured attach target for an existing one.
+  final String host;
+
+  /// `127.0.0.1:<port>` (or `<attach host>:<port>`): the Host header DSH's
+  /// fence accepts for this endpoint.
+  String get authority => '$host:$port';
 }
 
 /// What the probe found on the remote.

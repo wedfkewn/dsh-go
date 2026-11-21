@@ -23,11 +23,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
-import '../connection_state.dart';
 import '../engine_settings_state.dart';
 import '../plugins_state.dart' show installedPluginsProvider, pluginHostProvider;
 import '../read_list_cache.dart';
-import '../read_list_identity.dart' show readListIdentityProvider;
+import '../read_list_identity.dart' show activeWriteConnectionProvider, readListIdentityProvider;
 import 'plugin_config_api.dart';
 import 'plugin_config_bridge.dart';
 import 'plugin_config_scope.dart';
@@ -76,7 +75,10 @@ final pluginConfigApiProvider = Provider<PluginConfigApi?>((ref) {
   ref.onDispose(changes.close);
   ref.listen(engineSettingsProvider, (_, _) => changes.add(null));
   final engine = EngineSettingsPluginConfigApi(ref, changes.stream);
-  final client = ref.watch(activeConnectionProvider.select((c) => c.value?.client));
+  // Only the selected host's own client: activeConnectionProvider falls back
+  // to the local engine while a saved SSH host is missing from the loaded
+  // list, and a bridge read over that fallback would answer for 本机.
+  final client = ref.watch(activeWriteConnectionProvider)?.client;
   if (client == null || !client.canReachDshGo) return engine;
   final bridge = BridgePluginConfigApi(client, engine, scope: () => ref.read(pluginConfigScopeProvider));
   final restarts = client.hostEvents.listen((event) {
@@ -167,7 +169,7 @@ class EngineSettingsPluginConfigApi implements PluginConfigApi {
   }
 
   DshClient get _client {
-    final client = _ref.read(activeConnectionProvider).value?.client;
+    final client = _ref.read(activeWriteConnectionProvider)?.client;
     if (client == null) {
       throw PluginConfigFailure(PluginConfigFailureKind.unreachable, appL10n.commonEngineUnreachable);
     }
@@ -439,7 +441,7 @@ class PluginConfigController extends AsyncNotifier<PluginConfigState?> {
   @override
   Future<PluginConfigState?> build() async {
     final api = _api = ref.watch(pluginConfigApiProvider);
-    final conn = ref.watch(activeConnectionProvider.select((c) => c.value));
+    final conn = ref.watch(activeWriteConnectionProvider);
     final origin = _origin = Object();
     _queues.clear();
     _loading.clear();

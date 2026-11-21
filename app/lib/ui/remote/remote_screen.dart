@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../build_variant.dart';
 import '../../l10n/l10n.dart';
 import '../../remote/relay/relay_backend.dart';
+import '../../remote/ssh/ssh_link.dart';
 import '../../runtime/local_footprint.dart';
 import '../../runtime/runtime_state.dart';
 import '../../state/app_info.dart';
@@ -28,6 +30,8 @@ import 'pairing_page.dart';
 import 'relay_credit.dart';
 import 'relay_login_sheet.dart';
 import 'ssh_host_form.dart';
+import 'ssh_ownership.dart';
+import 'workbench/remote_workbench_page.dart';
 
 /// 远程主机 (a list page): the computers and servers this phone can drive.
 ///
@@ -97,6 +101,7 @@ class RemoteScreen extends ConsumerWidget {
       actions: const [AskAiButton(AskAiTopic.remote)],
       children: [
         _ActiveCard(active: active),
+        if (!active.isLocal) _WorkbenchEntry(host: active),
         _RelaySection(onUse: (h) => _use(context, ref, h)),
         SettingsSection(
           title: l10n.remoteTransferSettings,
@@ -176,6 +181,7 @@ class _ActiveCard extends ConsumerWidget {
     final view = HostStatusView.ofLink(status);
     final name = ref.watch(hostNameProvider(active)) ?? l10n.commonRemoteHost;
     final ssh = active.kind == HostKind.ssh ? ref.watch(hostsProvider).sshById(active.id) : null;
+    final link = ref.watch(hostLinkProvider(active));
     final error = status.error;
     // Errors a retry can't fix go to the host's settings (SSH) or the trust
     // check (relay) instead.
@@ -187,7 +193,7 @@ class _ActiveCard extends ConsumerWidget {
     void reconnect() => ref.read(remoteConnectionProvider(active).notifier).retry();
     final failed = status.phase == HostLinkPhase.failed && error != null;
     // No runtime on this phone: 本机 is nowhere to go back to.
-    final canGoLocal = ref.watch(localRuntimeProvider.select((s) => !s.status.runtimeMissing));
+    final canGoLocal = !remoteOnlyBuild && ref.watch(localRuntimeProvider.select((s) => !s.status.runtimeMissing));
     return OverviewCard(
       leading: OverviewGlyph(hostKindIcon(active.kind), tint: hostKindTint(active.kind)),
       title: Text(l10n.remoteActiveHost(name)),
@@ -200,7 +206,14 @@ class _ActiveCard extends ConsumerWidget {
             AnimatedStatusDot(tone: view.tone, size: 7),
             const SizedBox(width: 6),
             Flexible(
-              child: Text(_statusLine(status, view, ssh?.address), maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                [
+                  _statusLine(status, view, ssh?.address),
+                  ?sshOwnershipLabel(context, ssh, ownership: link is SshHostLink ? link.ownership : null),
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (active.kind == HostKind.relay && status.isConnected) ...[
               const SizedBox(width: 6),
@@ -276,6 +289,32 @@ class _ActiveCard extends ConsumerWidget {
       return path == null ? appL10n.remoteConnectedEncrypted : appL10n.remoteConnectedVia(path.label);
     }
     return view.label;
+  }
+}
+
+/// The one way from the host list into the connected server's workbench.
+/// While the link is not up the row stays visible but inert, and says why.
+class _WorkbenchEntry extends ConsumerWidget {
+  const _WorkbenchEntry({required this.host});
+
+  final HostRef host;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final status = ref.watch(hostLinkStatusProvider(host)).value ?? HostLinkStatus.idle;
+    final connected = status.isConnected;
+    return SettingsSection(
+      title: l10n.remoteWorkbench,
+      children: [
+        SettingsTile(
+          icon: AppIcons.remoteHosts,
+          title: l10n.remoteWorkbenchOpen,
+          subtitle: connected ? l10n.remoteWorkbenchIntro : l10n.remoteWorkbenchNeedsConnection,
+          onTap: connected ? () => Navigator.of(context).push(RemoteWorkbenchPage.route(host)) : null,
+        ),
+      ],
+    );
   }
 }
 
@@ -374,7 +413,7 @@ class _SshRow extends ConsumerWidget {
         icon: hostKindIcon(HostKind.ssh),
         tinted: false,
         title: config.name,
-        subtitle: config.address,
+        subtitle: [config.address, ?sshOwnershipLabel(context, config)].join(' · '),
         onTap: onTap,
         value: view == null ? null : _HostState(view),
         trailing: _EdgeIconButton(

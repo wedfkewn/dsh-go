@@ -28,6 +28,7 @@ import '../common/ask_ai.dart';
 import '../common/overview_card.dart';
 import '../common/search_capsule.dart';
 import '../common/status_chip.dart';
+import '../../build_variant.dart';
 import '../engine/engine_screen.dart';
 import '../engine/engine_status.dart';
 import '../engine_settings/engine_settings_hub.dart';
@@ -283,13 +284,16 @@ class SettingsScreen extends ConsumerWidget {
         SettingsSection(
           title: l10n.hubGroupHosts,
           children: [
-            SettingsTile(
-              icon: AppIcons.engine,
-              tint: SettingsHues.hosts,
-              spot: SettingsIndex.entry(SettingsPageId.engine),
-              value: StatusChip(tone: engine.tone, label: engine.label),
-              onTap: () => _push(context, const EngineScreen()),
-            ),
+            // Remote Only carries no engine; offering to install one would
+            // point at a runtime this build cannot have.
+            if (!remoteOnlyBuild)
+              SettingsTile(
+                icon: AppIcons.engine,
+                tint: SettingsHues.hosts,
+                spot: SettingsIndex.entry(SettingsPageId.engine),
+                value: StatusChip(tone: engine.tone, label: engine.label),
+                onTap: () => _push(context, const EngineScreen()),
+              ),
             SettingsTile(
               icon: AppIcons.remoteHosts,
               tint: SettingsHues.hosts,
@@ -483,11 +487,13 @@ class _SettingsOverviewState extends ConsumerState<SettingsOverview> {
             ? l10n.hubSettingsHostSemantics(title, hostLink)
             : l10n.hubSettingsAccountSemantics(title, subtitle),
         onTap: () => _push(hostLink != null ? const RemoteScreen() : const AccountPage()),
-        footer: OverviewFooter(
-          tone: engine.tone,
-          text: [l10n.hubSettingsEngine, engine.label, if (dsh != null) 'DSH $dsh'].join(' · '),
-        ),
-        onFooterTap: () => _push(const EngineScreen()),
+        footer: remoteOnlyBuild
+            ? null
+            : OverviewFooter(
+                tone: engine.tone,
+                text: [l10n.hubSettingsEngine, engine.label, if (dsh != null) 'DSH $dsh'].join(' · '),
+              ),
+        onFooterTap: remoteOnlyBuild ? null : () => _push(const EngineScreen()),
       ),
     );
   }

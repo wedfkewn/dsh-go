@@ -53,42 +53,14 @@ class FakeLaunchChannel extends LaunchChannel {
   void stopListening() => calls.add('stopListening');
 }
 
-/// The 桌面图标 a launcher entry shows (mist, night, frost, ink), straight from res: its
-/// background layer's gradient under its xxxhdpi foreground, cut to a circle, [px] square, as
-/// the splash draws it on a Pixel. Call inside `tester.runAsync`.
+/// The 桌面图标 a launcher entry shows (mist, night, frost, ink), as this platform ships it:
+/// `ios/Runner/Assets.xcassets/LaunchIcon<Name>.imageset` — the picture the system puts under
+/// the launch screen — decoded to [px] square. Call inside `tester.runAsync`.
 Future<ui.Image> shippedIcon(int px, {String variant = 'mist'}) async {
-  final suffix = variant == 'mist' ? '' : '_$variant';
-  final xml = File('android/app/src/main/res/drawable/ic_launcher${suffix}_background.xml').readAsStringSync();
-  final colours = [
-    for (final m in RegExp(r'android:color="#([0-9A-Fa-f]{8})"').allMatches(xml))
-      Color(int.parse(m.group(1)!, radix: 16)),
-  ];
-  final bytes = File('android/app/src/main/res/mipmap-xxxhdpi/ic_launcher${suffix}_foreground.png').readAsBytesSync();
-  final codec = await ui.instantiateImageCodec(bytes);
-  final foreground = (await codec.getNextFrame()).image;
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  final side = px.toDouble();
-  canvas.clipPath(Path()..addOval(Rect.fromLTWH(0, 0, side, side)));
-  // The visible 72 of the 108 grid fills the square.
-  canvas
-    ..save()
-    ..scale(side / 72)
-    ..translate(-18, -18)
-    ..drawRect(
-      const Rect.fromLTWH(0, 0, 108, 108),
-      Paint()..shader = ui.Gradient.linear(const Offset(7.57, -5.87), const Offset(100.43, 113.87), colours),
-    )
-    ..drawImageRect(
-      foreground,
-      Rect.fromLTWH(0, 0, foreground.width.toDouble(), foreground.height.toDouble()),
-      const Rect.fromLTWH(0, 0, 108, 108),
-      Paint()..filterQuality = FilterQuality.high,
-    )
-    ..restore();
-  final image = await recorder.endRecording().toImage(px, px);
-  foreground.dispose();
-  return image;
+  final name = 'LaunchIcon${variant[0].toUpperCase()}${variant.substring(1)}';
+  final bytes = File('ios/Runner/Assets.xcassets/$name.imageset/$name.png').readAsBytesSync();
+  final codec = await ui.instantiateImageCodec(bytes, targetWidth: px, targetHeight: px);
+  return (await codec.getNextFrame()).image;
 }
 
 /// A plain square in [color], for tests that only measure.

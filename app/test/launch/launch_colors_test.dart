@@ -1,30 +1,16 @@
-// The launch screen's fixed colours are the Android launch window's (res/values{,-night}/colors.xml):
-// a drift would show as a colour step at the hand-over.
-
-import 'dart:io';
-import 'dart:ui';
+// The launch screen's fixed colours live in Dart (`LaunchColors`). The iOS launch screen is a
+// system-background image with no app colour of its own, so there is no native table left to
+// drift from; what still has to hold is that the hand-over uses the default palette, or the
+// overlay would show a colour step.
+//
+// (The Android build had res/values{,-night}/colors.xml to compare against. That host is not
+// part of this source tree, so those two comparisons went with it.)
 
 import 'package:dsh_app/launch/custom_launch.dart';
 import 'package:dsh_app/ui/theme/palette.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Color _color(String dir, String name) {
-  final xml = File('android/app/src/main/res/$dir/colors.xml').readAsStringSync();
-  final m = RegExp('<color name="$name">#([0-9A-Fa-f]{8})</color>').firstMatch(xml)!;
-  return Color(int.parse(m.group(1)!, radix: 16));
-}
-
 void main() {
-  test('light launch colours match colors.xml', () {
-    expect(LaunchColors.mistTop, _color('values', 'launch_background_top'));
-    expect(LaunchColors.mistBottom, _color('values', 'launch_background_bottom'));
-  });
-
-  test('dark launch colours match values-night/colors.xml', () {
-    expect(LaunchColors.nightTop, _color('values-night', 'launch_background_top'));
-    expect(LaunchColors.nightBottom, _color('values-night', 'launch_background_bottom'));
-  });
-
   test('the wordmark ink is the default palette text, and the page is the default backdrop', () {
     expect(LaunchColors.ink, DshPalette.ink);
     expect(LaunchColors.paper, DshPalette.paper);

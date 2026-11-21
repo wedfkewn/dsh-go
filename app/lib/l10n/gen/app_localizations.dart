@@ -30746,6 +30746,1200 @@ abstract class L10n {
   /// **'精简 简洁 历史 工具 传输 流量 远程 compact slim lite'**
   String get searchKwRemoteCompactHistory;
 
+  /// No description provided for @remoteWorkbench.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程工作台'**
+  String get remoteWorkbench;
+
+  /// No description provided for @remoteWorkbenchIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台服务器上的聊天、文件与配置，集中在这里。'**
+  String get remoteWorkbenchIntro;
+
+  /// No description provided for @remoteWorkbenchOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入工作台'**
+  String get remoteWorkbenchOpen;
+
+  /// No description provided for @remoteWorkbenchNeedsConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接服务器后可进入'**
+  String get remoteWorkbenchNeedsConnection;
+
+  /// No description provided for @remoteWorkbenchSsh.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH'**
+  String get remoteWorkbenchSsh;
+
+  /// No description provided for @remoteWorkbenchDsh.
+  ///
+  /// In zh, this message translates to:
+  /// **'DSH'**
+  String get remoteWorkbenchDsh;
+
+  /// No description provided for @remoteWorkbenchReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已就绪'**
+  String get remoteWorkbenchReady;
+
+  /// No description provided for @remoteWorkbenchNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'未就绪'**
+  String get remoteWorkbenchNotReady;
+
+  /// No description provided for @remoteWorkbenchAllChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部对话'**
+  String get remoteWorkbenchAllChats;
+
+  /// No description provided for @remoteWorkbenchCurrentWorkspace.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前工作区'**
+  String get remoteWorkbenchCurrentWorkspace;
+
+  /// No description provided for @remoteWorkbenchCurrentModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前模型'**
+  String get remoteWorkbenchCurrentModel;
+
+  /// No description provided for @remoteWorkbenchAiChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 对话'**
+  String get remoteWorkbenchAiChat;
+
+  /// No description provided for @remoteWorkbenchAiChatHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看并继续这台服务器的对话'**
+  String get remoteWorkbenchAiChatHint;
+
+  /// No description provided for @remoteWorkbenchWorkspaces.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作区'**
+  String get remoteWorkbenchWorkspaces;
+
+  /// No description provided for @remoteWorkbenchWorkspacesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'登记和切换服务器目录'**
+  String get remoteWorkbenchWorkspacesHint;
+
+  /// No description provided for @remoteWorkbenchServerFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器文件'**
+  String get remoteWorkbenchServerFiles;
+
+  /// No description provided for @remoteWorkbenchServerFilesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过 SFTP 浏览整台服务器'**
+  String get remoteWorkbenchServerFilesHint;
+
+  /// No description provided for @remoteWorkbenchTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 终端'**
+  String get remoteWorkbenchTerminal;
+
+  /// No description provided for @remoteWorkbenchTerminalHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接打开服务器 Shell'**
+  String get remoteWorkbenchTerminalHint;
+
+  /// No description provided for @remoteWorkbenchModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型管理'**
+  String get remoteWorkbenchModels;
+
+  /// No description provided for @remoteWorkbenchModelsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换与配置远程模型渠道'**
+  String get remoteWorkbenchModelsHint;
+
+  /// No description provided for @remoteWorkbenchPlugins.
+  ///
+  /// In zh, this message translates to:
+  /// **'插件'**
+  String get remoteWorkbenchPlugins;
+
+  /// No description provided for @remoteWorkbenchPluginsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理服务器上的 DSH 插件'**
+  String get remoteWorkbenchPluginsHint;
+
+  /// No description provided for @remoteWorkbenchHostInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机信息'**
+  String get remoteWorkbenchHostInfo;
+
+  /// No description provided for @remoteWorkbenchHostInfoHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统、资源与实例所有权'**
+  String get remoteWorkbenchHostInfoHint;
+
+  /// No description provided for @remoteWorkbenchSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接设置'**
+  String get remoteWorkbenchSettings;
+
+  /// No description provided for @remoteWorkbenchSettingsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址、认证与实例模式'**
+  String get remoteWorkbenchSettingsHint;
+
+  /// No description provided for @remoteWorkbenchSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换'**
+  String get remoteWorkbenchSwitch;
+
+  /// No description provided for @remoteWorkbenchSoonSftp.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件管理器下一步接入'**
+  String get remoteWorkbenchSoonSftp;
+
+  /// No description provided for @remoteWorkbenchSoonPty.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端页面下一步接入'**
+  String get remoteWorkbenchSoonPty;
+
+  /// No description provided for @remoteWorkbenchSoonHostInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机信息接口就绪后可用'**
+  String get remoteWorkbenchSoonHostInfo;
+
+  /// No description provided for @remoteDiscoverTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现已运行的 DSH'**
+  String get remoteDiscoverTitle;
+
+  /// No description provided for @remoteDiscoverHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描服务器上已在运行的实例，确认后再连接；不会停止或重启任何进程。'**
+  String get remoteDiscoverHint;
+
+  /// No description provided for @remoteDiscoverSoon.
+  ///
+  /// In zh, this message translates to:
+  /// **'接口就绪后可用；现在请手动填写端口与 Token。'**
+  String get remoteDiscoverSoon;
+
+  /// No description provided for @remoteDiscoverBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'即将支持'**
+  String get remoteDiscoverBadge;
+
+  /// No description provided for @remoteOwnershipAttach.
+  ///
+  /// In zh, this message translates to:
+  /// **'只连接 · 你的实例'**
+  String get remoteOwnershipAttach;
+
+  /// No description provided for @remoteOwnershipManaged.
+  ///
+  /// In zh, this message translates to:
+  /// **'托管 · App 启动'**
+  String get remoteOwnershipManaged;
+
+  /// No description provided for @remoteStopManaged.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止托管 DSH'**
+  String get remoteStopManaged;
+
+  /// No description provided for @remoteStopManagedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止这个托管实例？'**
+  String get remoteStopManagedTitle;
+
+  /// No description provided for @remoteStopManagedBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'只会停止由这个 App 启动的 DSH，不会动你手动运行的其他实例；停止后自动重连不会再次启动它。'**
+  String get remoteStopManagedBody;
+
+  /// No description provided for @remoteStopManagedSoon.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止接口就绪后可用'**
+  String get remoteStopManagedSoon;
+
+  /// No description provided for @remoteErrAbsolutePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'只连接模式请填写绝对路径（以 / 开头）'**
+  String get remoteErrAbsolutePath;
+
+  /// No description provided for @remoteWorkbenchEntries.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器功能'**
+  String get remoteWorkbenchEntries;
+
+  /// No description provided for @remoteOwnershipManagedStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'托管 · 本次启动'**
+  String get remoteOwnershipManagedStarted;
+
+  /// No description provided for @remoteOwnershipManagedReused.
+  ///
+  /// In zh, this message translates to:
+  /// **'托管 · 复用已有'**
+  String get remoteOwnershipManagedReused;
+
+  /// No description provided for @remoteDiscoverScanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在扫描…'**
+  String get remoteDiscoverScanning;
+
+  /// No description provided for @remoteDiscoverEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有找到正在运行的 DSH'**
+  String get remoteDiscoverEmptyTitle;
+
+  /// No description provided for @remoteDiscoverEmptyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认服务器上已启动 dsh web，或手动填写端口与 Token。'**
+  String get remoteDiscoverEmptyBody;
+
+  /// No description provided for @remoteDiscoverFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描失败'**
+  String get remoteDiscoverFailed;
+
+  /// No description provided for @remoteDiscoverSelectTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择一个实例'**
+  String get remoteDiscoverSelectTitle;
+
+  /// No description provided for @remoteDiscoverSelectBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'只会连接你选中的实例，不会启动、停止或重启它。'**
+  String get remoteDiscoverSelectBody;
+
+  /// No description provided for @remoteDiscoverManaged.
+  ///
+  /// In zh, this message translates to:
+  /// **'App 启动'**
+  String get remoteDiscoverManaged;
+
+  /// No description provided for @remoteDiscoverPorts.
+  ///
+  /// In zh, this message translates to:
+  /// **'端口'**
+  String get remoteDiscoverPorts;
+
+  /// No description provided for @remoteDiscoverNoPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'未发现监听端口'**
+  String get remoteDiscoverNoPort;
+
+  /// No description provided for @remoteDiscoverTokenKnown.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取得 Token'**
+  String get remoteDiscoverTokenKnown;
+
+  /// No description provided for @remoteDiscoverManualTokenHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'该实例的 Token 需要你手动填写'**
+  String get remoteDiscoverManualTokenHint;
+
+  /// No description provided for @remoteDiscoverUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用这个实例'**
+  String get remoteDiscoverUse;
+
+  /// No description provided for @remoteDiscoverAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新扫描'**
+  String get remoteDiscoverAgain;
+
+  /// No description provided for @remoteStopManagedDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'托管实例已停止'**
+  String get remoteStopManagedDone;
+
+  /// No description provided for @remoteStopManagedFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能停止托管实例，请检查连接后重试'**
+  String get remoteStopManagedFailed;
+
+  /// No description provided for @remoteDshTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标地址'**
+  String get remoteDshTarget;
+
+  /// No description provided for @remoteDshTargetHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'隧道从服务器侧连接这个地址上的 DSH；默认 127.0.0.1，实例只监听其他网卡时改这里。'**
+  String get remoteDshTargetHelp;
+
+  /// No description provided for @remoteErrTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写可连接的地址，例如 127.0.0.1'**
+  String get remoteErrTarget;
+
+  /// No description provided for @remoteWorkbenchNoChats.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台服务器还没有对话，打开后新建一个'**
+  String get remoteWorkbenchNoChats;
+
+  /// No description provided for @remoteServerFilesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器文件'**
+  String get remoteServerFilesTitle;
+
+  /// No description provided for @remoteServerFilesRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'根目录'**
+  String get remoteServerFilesRoot;
+
+  /// No description provided for @remoteServerFilesHome.
+  ///
+  /// In zh, this message translates to:
+  /// **'主目录'**
+  String get remoteServerFilesHome;
+
+  /// No description provided for @remoteServerFilesHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示隐藏文件'**
+  String get remoteServerFilesHidden;
+
+  /// No description provided for @remoteServerFilesNewFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建文件夹'**
+  String get remoteServerFilesNewFolder;
+
+  /// No description provided for @remoteServerFilesNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件夹名称'**
+  String get remoteServerFilesNameHint;
+
+  /// No description provided for @remoteServerFilesNameInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称不能为空，也不能包含 /'**
+  String get remoteServerFilesNameInvalid;
+
+  /// No description provided for @remoteServerFilesUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传文件'**
+  String get remoteServerFilesUpload;
+
+  /// No description provided for @remoteServerFilesUploading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在上传 {done}/{total}：{name}'**
+  String remoteServerFilesUploading(int done, int total, String name);
+
+  /// No description provided for @remoteServerFilesUploaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已上传 {count} 个文件'**
+  String remoteServerFilesUploaded(int count);
+
+  /// No description provided for @remoteServerFilesUploadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传失败'**
+  String get remoteServerFilesUploadFailed;
+
+  /// No description provided for @remoteServerFilesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个文件夹是空的'**
+  String get remoteServerFilesEmpty;
+
+  /// No description provided for @remoteServerFilesLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取文件夹失败'**
+  String get remoteServerFilesLoadFailed;
+
+  /// No description provided for @remoteServerFilesUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台主机不支持 SFTP'**
+  String get remoteServerFilesUnsupported;
+
+  /// No description provided for @remoteServerFilesDisconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接已断开，请重试'**
+  String get remoteServerFilesDisconnected;
+
+  /// No description provided for @remoteServerFilesFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件夹'**
+  String get remoteServerFilesFolder;
+
+  /// No description provided for @remoteServerFilesSymlink.
+  ///
+  /// In zh, this message translates to:
+  /// **'符号链接'**
+  String get remoteServerFilesSymlink;
+
+  /// No description provided for @remoteServerFilesOpenFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开文件夹'**
+  String get remoteServerFilesOpenFolder;
+
+  /// No description provided for @remoteServerFilesPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get remoteServerFilesPreview;
+
+  /// No description provided for @remoteServerFilesRename.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名'**
+  String get remoteServerFilesRename;
+
+  /// No description provided for @remoteServerFilesPermissions.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限'**
+  String get remoteServerFilesPermissions;
+
+  /// No description provided for @remoteServerFilesPermissionsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改「{name}」的权限'**
+  String remoteServerFilesPermissionsTitle(String name);
+
+  /// No description provided for @remoteServerFilesPermissionsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'三位或四位八进制，例如 644 或 755'**
+  String get remoteServerFilesPermissionsHint;
+
+  /// No description provided for @remoteServerFilesPermissionsInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的八进制权限（000–7777）'**
+  String get remoteServerFilesPermissionsInvalid;
+
+  /// No description provided for @remoteServerFilesDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get remoteServerFilesDelete;
+
+  /// No description provided for @remoteServerFilesDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除「{name}」？'**
+  String remoteServerFilesDeleteTitle(String name);
+
+  /// No description provided for @remoteServerFilesDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这会删除服务器上的真实文件或文件夹，无法撤销。'**
+  String get remoteServerFilesDeleteBody;
+
+  /// No description provided for @remoteServerFilesOperationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作失败，请检查权限后重试'**
+  String get remoteServerFilesOperationFailed;
+
+  /// No description provided for @remoteServerFilesEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get remoteServerFilesEdit;
+
+  /// No description provided for @remoteServerFilesSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get remoteServerFilesSave;
+
+  /// No description provided for @remoteServerFilesSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get remoteServerFilesSaved;
+
+  /// No description provided for @remoteServerFilesSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败'**
+  String get remoteServerFilesSaveFailed;
+
+  /// No description provided for @remoteServerFilesOverwriteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并覆盖？'**
+  String get remoteServerFilesOverwriteTitle;
+
+  /// No description provided for @remoteServerFilesOverwriteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'会把修改写回服务器上的原文件。'**
+  String get remoteServerFilesOverwriteBody;
+
+  /// No description provided for @remoteServerFilesTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件太大，暂不支持在手机上编辑'**
+  String get remoteServerFilesTooLarge;
+
+  /// No description provided for @remoteServerFilesBinary.
+  ///
+  /// In zh, this message translates to:
+  /// **'二进制文件，无法以文本预览'**
+  String get remoteServerFilesBinary;
+
+  /// No description provided for @remoteTerminalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 终端'**
+  String get remoteTerminalTitle;
+
+  /// No description provided for @remoteTerminalNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建终端'**
+  String get remoteTerminalNew;
+
+  /// No description provided for @remoteTerminalUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台主机不支持 SSH 终端'**
+  String get remoteTerminalUnsupported;
+
+  /// No description provided for @remoteTerminalEnded.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端已结束，可新建一个'**
+  String get remoteTerminalEnded;
+
+  /// No description provided for @remoteTerminalReconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接已恢复，已重新打开终端'**
+  String get remoteTerminalReconnected;
+
+  /// No description provided for @remoteTerminalOpenHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'在此打开终端'**
+  String get remoteTerminalOpenHere;
+
+  /// No description provided for @remoteServerFilesPermissionsWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'会立即修改服务器上的权限。'**
+  String get remoteServerFilesPermissionsWarning;
+
+  /// No description provided for @remoteServerFilesOverwriteUploadTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖「{name}」？'**
+  String remoteServerFilesOverwriteUploadTitle(String name);
+
+  /// No description provided for @remoteServerFilesOverwriteUploadBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器上已有同名文件，上传会覆盖它。'**
+  String get remoteServerFilesOverwriteUploadBody;
+
+  /// No description provided for @remoteServerFilesDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载到手机'**
+  String get remoteServerFilesDownload;
+
+  /// No description provided for @remoteServerFilesDownloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载「{name}」'**
+  String remoteServerFilesDownloaded(String name);
+
+  /// No description provided for @remoteServerFilesTransfers.
+  ///
+  /// In zh, this message translates to:
+  /// **'传输（{count} 个进行中）'**
+  String remoteServerFilesTransfers(int count);
+
+  /// No description provided for @remoteServerFilesTransferTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'传输'**
+  String get remoteServerFilesTransferTitle;
+
+  /// No description provided for @remoteServerFilesNoTransfers.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有进行中的传输'**
+  String get remoteServerFilesNoTransfers;
+
+  /// No description provided for @remoteServerFilesTransferDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get remoteServerFilesTransferDone;
+
+  /// No description provided for @remoteServerFilesTransferFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get remoteServerFilesTransferFailed;
+
+  /// No description provided for @remoteServerFilesClearFinished.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已完成'**
+  String get remoteServerFilesClearFinished;
+
+  /// No description provided for @remoteServerFilesNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件或文件夹不存在'**
+  String get remoteServerFilesNotFound;
+
+  /// No description provided for @remoteServerFilesPermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有权限执行这个操作'**
+  String get remoteServerFilesPermissionDenied;
+
+  /// No description provided for @remoteServerFilesAlreadyExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'同名文件已存在'**
+  String get remoteServerFilesAlreadyExists;
+
+  /// No description provided for @remoteServerFilesNotEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件夹不为空'**
+  String get remoteServerFilesNotEmpty;
+
+  /// No description provided for @remoteServerFilesIsDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是一个文件夹'**
+  String get remoteServerFilesIsDirectory;
+
+  /// No description provided for @remoteServerFilesCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get remoteServerFilesCancelled;
+
+  /// No description provided for @remoteTerminalNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有打开的终端'**
+  String get remoteTerminalNone;
+
+  /// No description provided for @remoteTerminalConnecting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在打开终端…'**
+  String get remoteTerminalConnecting;
+
+  /// No description provided for @remoteTerminalFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'终端打开失败'**
+  String get remoteTerminalFailed;
+
+  /// No description provided for @remoteTerminalPtyRefused.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器拒绝分配终端（PTY）'**
+  String get remoteTerminalPtyRefused;
+
+  /// No description provided for @remoteTerminalConnectionLost.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接已断开，终端已结束'**
+  String get remoteTerminalConnectionLost;
+
+  /// No description provided for @remoteServerFilesFavoriteAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏此目录'**
+  String get remoteServerFilesFavoriteAdd;
+
+  /// No description provided for @remoteServerFilesFavoriteRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get remoteServerFilesFavoriteRemove;
+
+  /// No description provided for @remoteServerFilesFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏夹'**
+  String get remoteServerFilesFavorites;
+
+  /// No description provided for @remoteServerFilesFavoritesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有收藏的目录。在目录里点星号就能收藏。'**
+  String get remoteServerFilesFavoritesEmpty;
+
+  /// No description provided for @remoteServerFilesFavoriteAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已收藏「{path}」'**
+  String remoteServerFilesFavoriteAdded(String path);
+
+  /// No description provided for @remoteServerFilesFavoriteRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消收藏'**
+  String get remoteServerFilesFavoriteRemoved;
+
+  /// No description provided for @remoteServerFilesSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择'**
+  String get remoteServerFilesSelect;
+
+  /// No description provided for @remoteServerFilesSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get remoteServerFilesSelectAll;
+
+  /// No description provided for @remoteServerFilesSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 项'**
+  String remoteServerFilesSelected(int count);
+
+  /// No description provided for @remoteServerFilesBatchDeleteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除选中的 {count} 项？'**
+  String remoteServerFilesBatchDeleteTitle(int count);
+
+  /// No description provided for @remoteServerFilesBatchDeleteBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这些文件会从服务器上永久删除，无法撤销；非空目录无法删除。删除在第一个失败处停止。'**
+  String get remoteServerFilesBatchDeleteBody;
+
+  /// No description provided for @remoteServerFilesBatchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」删除失败：{reason}'**
+  String remoteServerFilesBatchFailed(String name, String reason);
+
+  /// No description provided for @remoteServerFilesAddToWorkspace.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入工作区'**
+  String get remoteServerFilesAddToWorkspace;
+
+  /// No description provided for @remoteServerFilesWorkspaceAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入工作区：「{path}」'**
+  String remoteServerFilesWorkspaceAdded(String path);
+
+  /// No description provided for @remoteServerFilesWorkspaceFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入工作区失败，需要先连接这台主机的 DSH'**
+  String get remoteServerFilesWorkspaceFailed;
+
+  /// No description provided for @remoteServerFilesAttach.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入对话附件'**
+  String get remoteServerFilesAttach;
+
+  /// No description provided for @remoteServerFilesAttachTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件太大，无法加入对话附件'**
+  String get remoteServerFilesAttachTooLarge;
+
+  /// No description provided for @remoteServerFilesAttachFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取文件失败，未加入对话附件'**
+  String get remoteServerFilesAttachFailed;
+
+  /// No description provided for @remoteServerFilesSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索文件名'**
+  String get remoteServerFilesSearch;
+
+  /// No description provided for @remoteServerFilesSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在当前目录及子目录中搜索'**
+  String get remoteServerFilesSearchHint;
+
+  /// No description provided for @remoteServerFilesSearchEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有找到匹配的文件'**
+  String get remoteServerFilesSearchEmpty;
+
+  /// No description provided for @remoteServerFilesSearchStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止搜索'**
+  String get remoteServerFilesSearchStop;
+
+  /// No description provided for @remoteServerFilesSearching.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在搜索…'**
+  String get remoteServerFilesSearching;
+
+  /// No description provided for @remoteServerFilesSearchResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'找到 {count} 项'**
+  String remoteServerFilesSearchResults(int count);
+
+  /// No description provided for @remoteServerFilesCopyTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制到'**
+  String get remoteServerFilesCopyTo;
+
+  /// No description provided for @remoteServerFilesMoveTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动到'**
+  String get remoteServerFilesMoveTo;
+
+  /// No description provided for @remoteServerFilesDestHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'绝对路径，例如 /srv/app'**
+  String get remoteServerFilesDestHint;
+
+  /// No description provided for @remoteServerFilesDestInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入服务器上的绝对路径'**
+  String get remoteServerFilesDestInvalid;
+
+  /// No description provided for @remoteServerFilesSamePlace.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标与源是同一位置，换一个目录'**
+  String get remoteServerFilesSamePlace;
+
+  /// No description provided for @remoteServerFilesConfirmCopyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制到「{to}」？'**
+  String remoteServerFilesConfirmCopyTitle(String to);
+
+  /// No description provided for @remoteServerFilesConfirmMoveTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动到「{to}」？'**
+  String remoteServerFilesConfirmMoveTitle(String to);
+
+  /// No description provided for @remoteServerFilesConfirmCopyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标位置若已有同名文件会被覆盖，无法撤销。文件夹不会被复制。'**
+  String get remoteServerFilesConfirmCopyBody;
+
+  /// No description provided for @remoteServerFilesConfirmMoveBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标位置若已有同名文件会被覆盖，无法撤销。符号链接按链接本身移动。'**
+  String get remoteServerFilesConfirmMoveBody;
+
+  /// No description provided for @remoteServerFilesCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制'**
+  String get remoteServerFilesCopied;
+
+  /// No description provided for @remoteServerFilesMoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已移动'**
+  String get remoteServerFilesMoved;
+
+  /// No description provided for @remoteServerFilesRetryTransfer.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get remoteServerFilesRetryTransfer;
+
+  /// No description provided for @remoteServerFilesHostChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机已切换，这次操作没有执行；请先切回这台主机'**
+  String get remoteServerFilesHostChanged;
+
+  /// No description provided for @remoteHostInfoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机信息'**
+  String get remoteHostInfoTitle;
+
+  /// No description provided for @remoteHostInfoConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接'**
+  String get remoteHostInfoConnection;
+
+  /// No description provided for @remoteHostInfoAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址'**
+  String get remoteHostInfoAddress;
+
+  /// No description provided for @remoteHostInfoAuth.
+  ///
+  /// In zh, this message translates to:
+  /// **'认证方式'**
+  String get remoteHostInfoAuth;
+
+  /// No description provided for @remoteHostInfoAuthPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码'**
+  String get remoteHostInfoAuthPassword;
+
+  /// No description provided for @remoteHostInfoAuthKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'私钥'**
+  String get remoteHostInfoAuthKey;
+
+  /// No description provided for @remoteHostInfoFingerprint.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器指纹'**
+  String get remoteHostInfoFingerprint;
+
+  /// No description provided for @remoteHostInfoOwnership.
+  ///
+  /// In zh, this message translates to:
+  /// **'实例归属'**
+  String get remoteHostInfoOwnership;
+
+  /// No description provided for @remoteHostInfoFeatures.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件与终端'**
+  String get remoteHostInfoFeatures;
+
+  /// No description provided for @remoteHostInfoFeaturesUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接后可知'**
+  String get remoteHostInfoFeaturesUnknown;
+
+  /// No description provided for @remoteHostInfoFeatureSftp.
+  ///
+  /// In zh, this message translates to:
+  /// **'SFTP 文件'**
+  String get remoteHostInfoFeatureSftp;
+
+  /// No description provided for @remoteHostInfoFeaturePty.
+  ///
+  /// In zh, this message translates to:
+  /// **'SSH 终端'**
+  String get remoteHostInfoFeaturePty;
+
+  /// No description provided for @remoteHostInfoFeatureNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'都不支持'**
+  String get remoteHostInfoFeatureNone;
+
+  /// No description provided for @remoteHostInfoSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程系统'**
+  String get remoteHostInfoSystem;
+
+  /// No description provided for @remoteHostInfoReading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取…'**
+  String get remoteHostInfoReading;
+
+  /// No description provided for @remoteHostInfoFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取主机信息失败'**
+  String get remoteHostInfoFailed;
+
+  /// No description provided for @remoteHostInfoReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只读取，不改动服务器上的任何东西'**
+  String get remoteHostInfoReadOnly;
+
+  /// No description provided for @remoteHostInfoOs.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get remoteHostInfoOs;
+
+  /// No description provided for @remoteHostInfoKernel.
+  ///
+  /// In zh, this message translates to:
+  /// **'内核'**
+  String get remoteHostInfoKernel;
+
+  /// No description provided for @remoteHostInfoArch.
+  ///
+  /// In zh, this message translates to:
+  /// **'架构'**
+  String get remoteHostInfoArch;
+
+  /// No description provided for @remoteHostInfoHostname.
+  ///
+  /// In zh, this message translates to:
+  /// **'主机名'**
+  String get remoteHostInfoHostname;
+
+  /// No description provided for @remoteHostInfoCpus.
+  ///
+  /// In zh, this message translates to:
+  /// **'CPU 核数'**
+  String get remoteHostInfoCpus;
+
+  /// No description provided for @remoteHostInfoMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存'**
+  String get remoteHostInfoMemory;
+
+  /// No description provided for @remoteHostInfoLoad.
+  ///
+  /// In zh, this message translates to:
+  /// **'负载'**
+  String get remoteHostInfoLoad;
+
+  /// No description provided for @remoteHostInfoUptime.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时长'**
+  String get remoteHostInfoUptime;
+
+  /// No description provided for @remoteHostInfoDisk.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘 /'**
+  String get remoteHostInfoDisk;
+
+  /// No description provided for @remoteHostInfoLimits.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件管理限制'**
+  String get remoteHostInfoLimits;
+
+  /// No description provided for @remoteHostInfoLimitRecursive.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制不递归：整个目录不会被复制'**
+  String get remoteHostInfoLimitRecursive;
+
+  /// No description provided for @remoteHostInfoLimitBatchDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'不能批量下载到手机，一次一个文件'**
+  String get remoteHostInfoLimitBatchDownload;
+
+  /// No description provided for @remoteHostInfoLimitHeic.
+  ///
+  /// In zh, this message translates to:
+  /// **'HEIC 图片不能预览'**
+  String get remoteHostInfoLimitHeic;
+
+  /// No description provided for @remoteHostInfoLimitSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索只在当前目录树下，不做全盘搜索'**
+  String get remoteHostInfoLimitSearch;
+
+  /// No description provided for @remoteHostInfoLimitSymlink.
+  ///
+  /// In zh, this message translates to:
+  /// **'符号链接只标注，不跟随进入'**
+  String get remoteHostInfoLimitSymlink;
+
+  /// No description provided for @remoteHostInfoRetryHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查这台主机是否可连接，然后重试'**
+  String get remoteHostInfoRetryHint;
+
+  /// No description provided for @remoteOnlyNoEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个版本不含本机引擎，请连接远程主机'**
+  String get remoteOnlyNoEngine;
+
   /// No description provided for @remotePairEntry.
   ///
   /// In zh, this message translates to:

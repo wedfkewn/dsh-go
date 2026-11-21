@@ -31,6 +31,7 @@ import '../theme/theme.dart';
 import 'render/code_block.dart';
 import 'render/markdown_body.dart';
 import 'render/markdown_image.dart' show MarkdownImageScope;
+import 'pdf_pages.dart';
 import 'widgets/artifact_card.dart' show ArtifactAction, showArtifactMenu;
 import 'widgets/change_card.dart' show copyPath;
 import 'widgets/image_actions.dart' show GallerySaveButton;
@@ -1340,7 +1341,7 @@ class _PdfPreviewState extends ConsumerState<_PdfPreview> {
     final l10n = context.l10n;
     final file = _file;
     if (file != null) {
-      return _PdfPages(key: ValueKey(_shown), path: file.path);
+      return PdfPagesView(key: ValueKey(_shown), path: file.path);
     }
     if (_error case final error?) {
       if (widget.office && _problemOf(error).fix == _Fix.retry) {
@@ -1708,122 +1709,4 @@ class _Spinner extends StatelessWidget {
       child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: color)),
     ),
   );
-}
-
-/// A PDF's pages, rendered natively one by one as they scroll in; pinch to
-/// zoom.
-class _PdfPages extends ConsumerStatefulWidget {
-  const _PdfPages({super.key, required this.path});
-
-  final String path;
-
-  @override
-  ConsumerState<_PdfPages> createState() => _PdfPagesState();
-}
-
-class _PdfPagesState extends ConsumerState<_PdfPages> {
-  late final FilesChannel _channel = ref.read(filesChannelProvider);
-  late final Future<List<({int width, int height})>> _pages = _channel.pdfInfo(widget.path);
-
-  @override
-  void dispose() {
-    unawaited(_channel.pdfClose().catchError((Object _) {}));
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final dsh = DshColors.of(context);
-    return FutureBuilder(
-      future: _pages,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                l10n.viewArtifactPdfFailed,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: dsh.textTertiary),
-              ),
-            ),
-          );
-        }
-        final pages = snapshot.data;
-        if (pages == null) return const _Spinner();
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth - 24;
-            final pixels = (width * MediaQuery.devicePixelRatioOf(context)).round();
-            return InteractiveViewer(
-              maxScale: 4,
-              child: ListView.separated(
-                padding: EdgeInsets.fromLTRB(12, 4, 12, MediaQuery.paddingOf(context).bottom + 24),
-                itemCount: pages.length + 1,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, i) {
-                  if (i == pages.length) {
-                    return Center(
-                      child: Text(
-                        l10n.viewArtifactPages(pages.length),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: dsh.textTertiary),
-                      ),
-                    );
-                  }
-                  final page = pages[i];
-                  return AspectRatio(
-                    aspectRatio: page.width / (page.height == 0 ? 1 : page.height),
-                    child: _PdfPage(channel: _channel, path: widget.path, index: i, pixels: pixels),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _PdfPage extends StatefulWidget {
-  const _PdfPage({required this.channel, required this.path, required this.index, required this.pixels});
-
-  final FilesChannel channel;
-  final String path;
-  final int index;
-  final int pixels;
-
-  @override
-  State<_PdfPage> createState() => _PdfPageState();
-}
-
-class _PdfPageState extends State<_PdfPage> {
-  late final Future<Uint8List> _png = widget.channel.pdfPage(widget.path, widget.index, widget.pixels);
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 1))],
-      ),
-      child: FutureBuilder<Uint8List>(
-        future: _png,
-        builder: (context, snapshot) {
-          final bytes = snapshot.data;
-          if (bytes == null || bytes.isEmpty) {
-            return snapshot.hasError ? const Center(child: Icon(AppIcons.imageBroken)) : const SizedBox.expand();
-          }
-          return Image.memory(
-            bytes,
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
-            semanticLabel: l10n.viewArtifactPage(widget.index + 1),
-          );
-        },
-      ),
-    );
-  }
 }

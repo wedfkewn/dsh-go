@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter/services.dart' show MissingPluginException, PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../build_variant.dart';
 import '../l10n/l10n.dart';
 import '../state/settings_state.dart';
 import '../state/read_list_epoch.dart';
@@ -124,7 +125,9 @@ class LocalRuntimeController extends Notifier<LocalRuntimeState> {
     _sub = _bridge.events.listen(_onEvent, onError: (_) {});
     ref.onDispose(() => _sub?.cancel());
     unawaited(_refresh());
-    return const LocalRuntimeState();
+    // A Remote Only build ships no engine payload: the native channel answers,
+    // but nothing can be installed, so 本机 must not be offered as a choice.
+    return LocalRuntimeState(available: !remoteOnlyBuild);
   }
 
   Future<void> _refresh() async {

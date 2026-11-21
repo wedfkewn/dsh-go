@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:dsh_client/dsh_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'connection_state.dart';
+import 'read_list_identity.dart';
 
-/// The active host's client, or null while not connected.
-DshClient? _client(Ref ref) => ref.watch(activeConnectionProvider).value?.client;
+/// The selected host's client, or null while not connected. Writes and reads
+/// both stay on that host: never the 本机 fallback for a missing SSH host.
+DshClient? _client(Ref ref) => ref.watch(activeWriteConnectionProvider)?.client;
 
 /// Re-runs [ref]'s provider when the Host emits one of [events].
 void _refreshOn(Ref ref, DshClient client, Set<String> events) {

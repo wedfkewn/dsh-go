@@ -278,32 +278,60 @@ void main() {
   });
 
   group('the previews match the shipped icons', () {
-    const res = 'android/app/src/main/res';
+    // The bundle the app installs from: one flat PNG per icon, not background layers.
+    String shipped(AppIcon icon) => switch (icon) {
+      AppIcon.mist => 'ios/Runner/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png',
+      AppIcon.night => 'ios/Runner/Assets.xcassets/AppIconNight.appiconset/AppIconNight-1024.png',
+      AppIcon.frost => 'ios/Runner/Assets.xcassets/AppIconFrost.appiconset/AppIconFrost-1024.png',
+      AppIcon.ink => 'ios/Runner/Assets.xcassets/AppIconInk.appiconset/AppIconInk-1024.png',
+    };
 
-    test('background gradients', () {
+    testWidgets('every icon ships as a 1024 square', (tester) async {
       for (final icon in AppIcon.values) {
-        final file = icon == AppIcon.mist ? 'ic_launcher_background' : 'ic_launcher_${icon.name}_background';
-        final xml = File('$res/drawable/$file.xml').readAsStringSync();
-        double attr(String a) => double.parse(RegExp('android:$a="([-0-9.]+)"').firstMatch(xml)!.group(1)!);
-        final colors = [
-          for (final m in RegExp('android:color="#([0-9A-Fa-f]{8})"').allMatches(xml))
-            Color(int.parse(m.group(1)!, radix: 16)),
-        ];
+        final file = shipped(icon);
+        expect(File(file).existsSync(), isTrue, reason: file);
+        final bytes = File(file).readAsBytesSync();
+        final size = await tester.runAsync(() async {
+          final frame = await (await ui.instantiateImageCodec(bytes)).getNextFrame();
+          return Size(frame.image.width.toDouble(), frame.image.height.toDouble());
+        });
+        expect(size, const Size(1024, 1024), reason: file);
+      }
+    });
+
+    testWidgets('the shipped icon runs the preview gradient from light to dark', (tester) async {
+      for (final icon in AppIcon.values) {
+        final rgba = await tester.runAsync(() async {
+          final bytes = File(shipped(icon)).readAsBytesSync();
+          final frame = await (await ui.instantiateImageCodec(bytes)).getNextFrame();
+          return (await frame.image.toByteData())!;
+        });
+        int channel(int x, int y, int c) => rgba!.getUint8((y * 1024 + x) * 4 + c);
         final art = AppIconArt.of(icon);
-        expect(colors, [art.from, art.to], reason: file);
-        expect(Offset(attr('startX'), attr('startY')), AppIconArt.start, reason: file);
-        expect(Offset(attr('endX'), attr('endY')), AppIconArt.end, reason: file);
+        final from = [art.from.r, art.from.g, art.from.b].map((c) => (c * 255).round()).toList();
+        final to = [art.to.r, art.to.g, art.to.b].map((c) => (c * 255).round()).toList();
+        for (final (x, y) in [(4, 4), (1019, 1019)]) {
+          for (var c = 0; c < 3; c++) {
+            final value = channel(x, y, c);
+            // The gradient's stops sit outside the 108 canvas, so a corner is close to, not
+            // equal to, an end colour; it must still be between the two.
+            expect(value, greaterThanOrEqualTo(math.min(from[c], to[c]) - 2), reason: '$icon at $x,$y');
+            expect(value, lessThanOrEqualTo(math.max(from[c], to[c]) + 2), reason: '$icon at $x,$y');
+          }
+        }
+        // Light at the top-left, dark at the bottom-right.
+        expect(channel(4, 4, 1), greaterThan(channel(1019, 1019, 1)), reason: '$icon');
       }
     });
 
     testWidgets("墨's glyph colour", (tester) async {
-      final bytes = File('$res/mipmap-xxxhdpi/ic_launcher_ink_foreground.png').readAsBytesSync();
+      final bytes = File(shipped(AppIcon.ink)).readAsBytesSync();
       final rgba = await tester.runAsync(() async {
         final frame = await (await ui.instantiateImageCodec(bytes)).getNextFrame();
         return (await frame.image.toByteData())!;
       });
-      // Inside the body (108 grid (53.5, 70)), at 4 px per unit.
-      final at = (280 * 432 + 214) * 4;
+      // Inside the body (108 grid (53.5, 70)), scaled to the 1024 icon.
+      final at = ((70 / 108 * 1024).round() * 1024 + (53.5 / 108 * 1024).round()) * 4;
       final pixel = [for (var i = 0; i < 4; i++) rgba!.getUint8(at + i)];
       final mono = AppIconArt.of(AppIcon.ink).mono!;
       expect(pixel[3], 255);

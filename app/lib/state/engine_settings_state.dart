@@ -17,10 +17,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
-import 'connection_state.dart';
 import 'engine_error_text.dart';
 import 'media_catalog.dart' show mediaKeyRefsOf;
 import 'plugins_state.dart';
+import 'read_list_identity.dart' show activeWriteConnectionProvider;
 
 export 'package:dsh_client/dsh_client.dart'
     show
@@ -546,11 +546,9 @@ class EngineSettingsController extends AsyncNotifier<EngineSettings?> {
 
   bool _accepts(Object? origin) {
     if (!ref.mounted || origin == null || !identical(origin, _origin) || _client == null) return false;
-    final connection = ref.read(activeConnectionProvider);
+    final connection = ref.read(activeWriteConnectionProvider);
     final mux = _client!.mux;
-    return !connection.isLoading &&
-        !connection.hasError &&
-        identical(connection.value?.client, _client) &&
+    return identical(connection?.client, _client) &&
         identical(mux.generation, _generation) &&
         mux.state != DshConnectionState.reconnecting &&
         mux.state != DshConnectionState.unauthorized &&
@@ -570,8 +568,10 @@ class EngineSettingsController extends AsyncNotifier<EngineSettings?> {
 
   @override
   Future<EngineSettings?> build() async {
-    final connection = ref.watch(activeConnectionProvider);
-    final conn = connection.isLoading || connection.hasError ? null : connection.value;
+    // The selected host's own connection, never the local fallback a saved
+    // SSH host uses while it is missing from the loaded list: editing here
+    // would write 本机's settings while the page says the server's.
+    final conn = ref.watch(activeWriteConnectionProvider);
     final origin = _origin = Object();
     _client = conn?.client;
     _generation = conn?.client.mux.generation;
@@ -1196,7 +1196,9 @@ class InventorySnapshot {
 /// where the relay does not let it through), joined with the bundle list;
 /// refreshed on plugin changes. Null while not connected.
 final pluginInventoryProvider = FutureProvider.autoDispose<InventorySnapshot?>((ref) async {
-  final conn = ref.watch(activeConnectionProvider.select((c) => c.value));
+  // Same identity filter as engine settings: an unknown SSH host must read as
+  // offline, not answer for the local engine.
+  final conn = ref.watch(activeWriteConnectionProvider);
   if (conn == null) return null;
   final client = conn.client;
   final sub = client.pluginManagerEvents.listen((event) {

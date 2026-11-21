@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../remote/ssh/dsh_discovery.dart';
 import '../../remote/ssh/ssh_link.dart';
+import '../../remote/ssh/ssh_transport.dart';
 import '../../state/android_features.dart';
 import '../../state/attachments.dart';
 import '../../state/connection_state.dart';
@@ -19,8 +21,10 @@ import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'attach_instances_sheet.dart';
 import 'host_key_dialog.dart';
 import 'link_progress.dart';
+import 'stop_managed_dialog.dart';
 import '../common/discard_guard.dart';
 import '../common/smooth_size.dart';
 import '../common/brief_notice.dart';
@@ -54,6 +58,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
   final _passphrase = TextEditingController();
   final _attachToken = TextEditingController();
   late final _remotePort = TextEditingController(text: '${widget.existing?.remotePort ?? 3080}');
+  late final _attachHost = TextEditingController(text: widget.existing?.attachHost ?? defaultAttachHost);
   late SshDshMode _dshMode = widget.existing?.dshMode ?? SshDshMode.managed;
   late bool _compression = widget.existing?.compression ?? true;
 
@@ -66,6 +71,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
   late String? _keyFor = widget.existing == null ? null : '${widget.existing!.host}:${widget.existing!.port}';
   bool _obscure = true;
   bool _saving = false;
+  bool _discovering = false;
 
   /// A problem that isn't about one field (saving failed).
   String? _formError;
@@ -96,6 +102,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
     _passphrase,
     _attachToken,
     _remotePort,
+    _attachHost,
   ]);
 
   String _signature() => jsonEncode({
@@ -111,6 +118,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
     'auth': _auth.name,
     'dshMode': _dshMode.name,
     'remotePort': _remotePort.text,
+    'attachHost': _attachHost.text,
     'attachToken': _attachToken.text,
     'compression': _compression,
     'keyType': _keyType,
@@ -193,6 +201,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
       _passphrase,
       _attachToken,
       _remotePort,
+      _attachHost,
     ]) {
       c.dispose();
     }
@@ -200,7 +209,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
   }
 
   /// The config as typed; null (with [_errors] set) when incomplete.
-  SshHostConfig? _draft() {
+  SshHostConfig? _draft({bool forDiscovery = false}) {
     final host = _host.text.trim();
     final user = _user.text.trim();
     final port = int.tryParse(_port.text.trim());
@@ -213,10 +222,17 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
         _F.password: context.l10n.remoteSshPasswordRequired,
       if (_auth == SshAuthMethod.privateKey && _privateKey.text.trim().isEmpty)
         _F.key: context.l10n.remoteSshKeyRequired,
-      if (_dshMode == SshDshMode.attachOnly && (remotePort == null || remotePort < 1 || remotePort > 65535))
+      if (!forDiscovery &&
+          _dshMode == SshDshMode.attachOnly &&
+          (remotePort == null || remotePort < 1 || remotePort > 65535))
         _F.remotePort: '1–65535',
-      if (_dshMode == SshDshMode.attachOnly && _attachToken.text.trim().isEmpty)
+      if (!forDiscovery && _dshMode == SshDshMode.attachOnly && _attachToken.text.trim().isEmpty)
         _F.attachToken: context.l10n.remoteErrAttachSettings,
+      if (!forDiscovery &&
+          _dshMode == SshDshMode.attachOnly &&
+          _cwd.text.trim().isNotEmpty &&
+          !_cwd.text.trim().startsWith('/'))
+        _F.cwd: context.l10n.remoteErrAbsolutePath,
     };
     setState(() {
       _errors = errors;
@@ -248,6 +264,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
       auth: _auth,
       dshMode: _dshMode,
       remotePort: remotePort ?? 3080,
+      attachHost: _attachHost.text.trim().isEmpty ? defaultAttachHost : _attachHost.text.trim(),
       compression: _compression,
       launchCommand: _command.text.trim().isEmpty ? defaultDshLaunchCommand : _command.text.trim(),
       workingDirectory: _cwd.text.trim().isEmpty ? null : _cwd.text.trim(),
@@ -267,6 +284,81 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
     passphrase: _passphrase.text,
     attachToken: _attachToken.text.trim(),
   );
+
+  /// Stops the managed instance behind the saved host, never the draft. The
+  /// link is needed for its live transport; the confirmation says whose
+  /// process is stopped.
+  Future<void> _confirmStop() async {
+    final existing = widget.existing;
+    if (existing == null) return;
+    final link = ref.read(hostLinkProvider(HostRef.ssh(existing.id)));
+    if (link is! SshHostLink || !link.status.isConnected) {
+      showBriefNotice(context, context.l10n.remoteStopManagedFailed);
+      return;
+    }
+    if (!await confirmStopManaged(context, hostName: existing.name)) return;
+    try {
+      await link.stopManaged();
+      if (mounted) showBriefNotice(context, context.l10n.remoteStopManagedDone);
+    } on Object {
+      if (mounted) showBriefNotice(context, context.l10n.remoteStopManagedFailed);
+    }
+  }
+
+  /// Explicit, read-only scan: one SSH connection, the discovery script, then
+  /// the connection closes. It never starts, stops or restarts the DSH it finds
+  /// and never reads another process's environment.
+  Future<void> _discover() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final config = _draft(forDiscovery: true);
+    if (config == null) return;
+    final l10n = context.l10n;
+    final pinned = _keyMatches;
+    setState(() => _discovering = true);
+    SshTransport? transport;
+    try {
+      transport = await ref.read(sshTransportFactoryProvider)(SshConnectParams.of(config, _secrets), (key) async {
+        if (pinned) {
+          if (key.fingerprint == _keyFingerprint) return true;
+          if (mounted) showBriefNotice(context, l10n.remoteHostKeyChangedTitle);
+          return false;
+        }
+        if (!mounted) return false;
+        return confirmHostKey(
+          context,
+          HostKeyPrompt(hostName: config.name, address: '${config.host}:${config.port}', key: key),
+        );
+      });
+      final found = await discoverDshInstances(transport);
+      transport.close();
+      transport = null;
+      if (!mounted) return;
+      if (found.isEmpty) {
+        await showAppDialog<void>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            title: Text(l10n.remoteDiscoverEmptyTitle),
+            content: Text(l10n.remoteDiscoverEmptyBody),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: Text(l10n.commonDone))],
+          ),
+        );
+        return;
+      }
+      final pick = await showAttachInstancesSheet(context, instances: found);
+      if (pick == null || !mounted) return;
+      setState(() {
+        _dshMode = SshDshMode.attachOnly;
+        if (pick.ports.isNotEmpty) _remotePort.text = '${pick.ports.first}';
+        if (pick.token case final token?) _attachToken.text = token;
+        _testStatus = null;
+      });
+    } on Object {
+      if (mounted) showBriefNotice(context, l10n.remoteDiscoverFailed);
+    } finally {
+      transport?.close();
+      if (mounted) setState(() => _discovering = false);
+    }
+  }
 
   Future<void> _runTest({bool restart = false}) async {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -458,6 +550,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
     final scheme = theme.colorScheme;
     final colors = DshColors.of(context);
     final testing = _test != null;
+    final stopReady = _editing && ref.watch(hostLinkStatusProvider(HostRef.ssh(_id))).value?.isConnected == true;
     final mono = AppType.mono(size: 15, color: scheme.onSurface, height: 1.4);
 
     final page = AppPage.list(
@@ -671,6 +764,8 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
                         }),
                       ),
                     ),
+                    if (_dshMode == SshDshMode.attachOnly)
+                      _DiscoverAttachRow(onTap: _discovering ? null : _discover, busy: _discovering),
                     if (_dshMode == SshDshMode.managed)
                       FormFieldBlock(
                         label: l10n.remoteStartCommand,
@@ -691,6 +786,19 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
                         ),
                       ),
                       FormFieldBlock(
+                        key: _fieldKeys[_F.attachHost],
+                        error: _errors[_F.attachHost],
+                        label: l10n.remoteDshTarget,
+                        helper: l10n.remoteDshTargetHelp,
+                        child: TextField(
+                          controller: _attachHost,
+                          autocorrect: false,
+                          style: mono,
+                          onChanged: (_) => _edited(_F.attachHost),
+                          decoration: const InputDecoration(hintText: '127.0.0.1'),
+                        ),
+                      ),
+                      FormFieldBlock(
                         key: _fieldKeys[_F.attachToken],
                         error: _errors[_F.attachToken],
                         label: l10n.remoteDshToken,
@@ -706,6 +814,8 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
                       ),
                     ],
                     FormFieldBlock(
+                      key: _fieldKeys[_F.cwd],
+                      error: _errors[_F.cwd],
                       label: l10n.remoteWorkingDirectory,
                       helper: _dshMode == SshDshMode.attachOnly
                           ? l10n.remoteAttachWorkingDirectoryHelp
@@ -714,6 +824,7 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
                         controller: _cwd,
                         autocorrect: false,
                         style: mono,
+                        onChanged: (_) => _edited(_F.cwd),
                         decoration: InputDecoration(
                           hintText: _dshMode == SshDshMode.attachOnly ? '/srv/code' : '~/code',
                         ),
@@ -727,11 +838,18 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
                   value: _compression,
                   onChanged: (v) => setState(() => _compression = v),
                 ),
-                if (_dshMode == SshDshMode.managed)
+                if (_dshMode == SshDshMode.managed) ...[
                   TextButton(
                     onPressed: testing || _saving ? null : _confirmRestart,
                     child: Text(l10n.remoteRestartManaged),
                   ),
+                  if (stopReady)
+                    TextButton(
+                      style: TextButton.styleFrom(foregroundColor: DshColors.of(context).danger),
+                      onPressed: testing || _saving || _discovering ? null : _confirmStop,
+                      child: Text(l10n.remoteStopManaged),
+                    ),
+                ],
               ],
             ),
             SettingsSection(
@@ -839,8 +957,69 @@ class _SshHostFormPageState extends ConsumerState<SshHostFormPage> with FieldPas
   }
 }
 
+/// Attach mode's way into instance discovery. Tapping scans once, with the
+/// user watching: no background retry, no second connection left open.
+class _DiscoverAttachRow extends StatelessWidget {
+  const _DiscoverAttachRow({required this.onTap, required this.busy});
+
+  final VoidCallback? onTap;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colors = DshColors.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: '${l10n.remoteDiscoverTitle}. ${l10n.remoteDiscoverHint}',
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppShape.radiusMd,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: colors.textTertiary.withValues(alpha: 0.06),
+              shape: Squircle.border(AppShape.md, side: BorderSide(color: colors.textTertiary.withValues(alpha: 0.18))),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              child: Row(
+                children: [
+                  Icon(AppIcons.search, size: 20, color: colors.textTertiary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.remoteDiscoverTitle, style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 2),
+                        Text(
+                          busy ? l10n.remoteDiscoverScanning : l10n.remoteDiscoverHint,
+                          style: theme.textTheme.bodySmall?.copyWith(color: colors.textTertiary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (busy)
+                    const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  else
+                    Icon(AppIcons.forward, size: 18, color: colors.textTertiary),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The fields of a form page.
-enum _F { host, user, port, password, key, remotePort, attachToken }
+enum _F { host, user, port, password, key, remotePort, attachHost, attachToken, cwd }
 
 /// A compact text action in a field label row; its label ends flush with the
 /// field's edge.

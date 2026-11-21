@@ -17644,6 +17644,641 @@ class L10nEn extends L10n {
   String get searchKwRemoteCompactHistory => 'compact slim lite history tools transfer bandwidth remote';
 
   @override
+  String get remoteWorkbench => 'Remote workbench';
+
+  @override
+  String get remoteWorkbenchIntro => 'Chats, files and settings for this server, in one place.';
+
+  @override
+  String get remoteWorkbenchOpen => 'Open workbench';
+
+  @override
+  String get remoteWorkbenchNeedsConnection => 'Connect to the server to open the workbench';
+
+  @override
+  String get remoteWorkbenchSsh => 'SSH';
+
+  @override
+  String get remoteWorkbenchDsh => 'DSH';
+
+  @override
+  String get remoteWorkbenchReady => 'Ready';
+
+  @override
+  String get remoteWorkbenchNotReady => 'Not ready';
+
+  @override
+  String get remoteWorkbenchAllChats => 'All chats';
+
+  @override
+  String get remoteWorkbenchCurrentWorkspace => 'Workspace';
+
+  @override
+  String get remoteWorkbenchCurrentModel => 'Model';
+
+  @override
+  String get remoteWorkbenchAiChat => 'AI chat';
+
+  @override
+  String get remoteWorkbenchAiChatHint => 'See and continue this server’s chats';
+
+  @override
+  String get remoteWorkbenchWorkspaces => 'Workspaces';
+
+  @override
+  String get remoteWorkbenchWorkspacesHint => 'Register and switch server folders';
+
+  @override
+  String get remoteWorkbenchServerFiles => 'Server files';
+
+  @override
+  String get remoteWorkbenchServerFilesHint => 'Browse the whole server over SFTP';
+
+  @override
+  String get remoteWorkbenchTerminal => 'SSH terminal';
+
+  @override
+  String get remoteWorkbenchTerminalHint => 'Open the server shell directly';
+
+  @override
+  String get remoteWorkbenchModels => 'Models';
+
+  @override
+  String get remoteWorkbenchModelsHint => 'Switch and configure remote model channels';
+
+  @override
+  String get remoteWorkbenchPlugins => 'Plugins';
+
+  @override
+  String get remoteWorkbenchPluginsHint => 'Manage DSH plugins on the server';
+
+  @override
+  String get remoteWorkbenchHostInfo => 'Host info';
+
+  @override
+  String get remoteWorkbenchHostInfoHint => 'System, resources and instance ownership';
+
+  @override
+  String get remoteWorkbenchSettings => 'Connection settings';
+
+  @override
+  String get remoteWorkbenchSettingsHint => 'Address, authentication and instance mode';
+
+  @override
+  String get remoteWorkbenchSwitch => 'Switch';
+
+  @override
+  String get remoteWorkbenchSoonSftp => 'File manager lands next';
+
+  @override
+  String get remoteWorkbenchSoonPty => 'Terminal page lands next';
+
+  @override
+  String get remoteWorkbenchSoonHostInfo => 'Available once host info support lands';
+
+  @override
+  String get remoteDiscoverTitle => 'Discover a running DSH';
+
+  @override
+  String get remoteDiscoverHint =>
+      'Scans the server for running instances and connects only after you confirm; it never stops or restarts a process.';
+
+  @override
+  String get remoteDiscoverSoon => 'Available once discovery lands; for now enter the port and token yourself.';
+
+  @override
+  String get remoteDiscoverBadge => 'Soon';
+
+  @override
+  String get remoteOwnershipAttach => 'Attach · your instance';
+
+  @override
+  String get remoteOwnershipManaged => 'Managed · app-started';
+
+  @override
+  String get remoteStopManaged => 'Stop managed DSH';
+
+  @override
+  String get remoteStopManagedTitle => 'Stop this managed instance?';
+
+  @override
+  String get remoteStopManagedBody =>
+      'Stops only the DSH this app started, never another instance you run yourself. Automatic reconnect will not start it again.';
+
+  @override
+  String get remoteStopManagedSoon => 'Available once the stop interface lands';
+
+  @override
+  String get remoteErrAbsolutePath => 'Attach mode needs an absolute path (starting with /)';
+
+  @override
+  String get remoteWorkbenchEntries => 'Server features';
+
+  @override
+  String get remoteOwnershipManagedStarted => 'Managed · started now';
+
+  @override
+  String get remoteOwnershipManagedReused => 'Managed · reused';
+
+  @override
+  String get remoteDiscoverScanning => 'Scanning…';
+
+  @override
+  String get remoteDiscoverEmptyTitle => 'No running DSH found';
+
+  @override
+  String get remoteDiscoverEmptyBody => 'Start dsh web on the server, or enter the port and token yourself.';
+
+  @override
+  String get remoteDiscoverFailed => 'Scan failed';
+
+  @override
+  String get remoteDiscoverSelectTitle => 'Choose an instance';
+
+  @override
+  String get remoteDiscoverSelectBody =>
+      'The app only connects to the instance you pick; it never starts, stops or restarts one.';
+
+  @override
+  String get remoteDiscoverManaged => 'App-started';
+
+  @override
+  String get remoteDiscoverPorts => 'ports';
+
+  @override
+  String get remoteDiscoverNoPort => 'No listening port found';
+
+  @override
+  String get remoteDiscoverTokenKnown => 'Token available';
+
+  @override
+  String get remoteDiscoverManualTokenHint => 'Enter this instance’s token yourself';
+
+  @override
+  String get remoteDiscoverUse => 'Use this instance';
+
+  @override
+  String get remoteDiscoverAgain => 'Scan again';
+
+  @override
+  String get remoteStopManagedDone => 'Managed instance stopped';
+
+  @override
+  String get remoteStopManagedFailed => 'Couldn’t stop the managed instance. Check the connection and retry.';
+
+  @override
+  String get remoteDshTarget => 'Target address';
+
+  @override
+  String get remoteDshTargetHelp =>
+      'The tunnel reaches DSH at this address from the server; 127.0.0.1 by default. Change it when the instance listens on another interface.';
+
+  @override
+  String get remoteErrTarget => 'Enter a reachable address, for example 127.0.0.1';
+
+  @override
+  String get remoteWorkbenchNoChats => 'No chats on this server yet; open it to start one';
+
+  @override
+  String get remoteServerFilesTitle => 'Server files';
+
+  @override
+  String get remoteServerFilesRoot => 'Root';
+
+  @override
+  String get remoteServerFilesHome => 'Home';
+
+  @override
+  String get remoteServerFilesHidden => 'Show hidden files';
+
+  @override
+  String get remoteServerFilesNewFolder => 'New folder';
+
+  @override
+  String get remoteServerFilesNameHint => 'Folder name';
+
+  @override
+  String get remoteServerFilesNameInvalid => 'A name is required and cannot contain /';
+
+  @override
+  String get remoteServerFilesUpload => 'Upload file';
+
+  @override
+  String remoteServerFilesUploading(int done, int total, String name) {
+    return 'Uploading $done/$total: $name';
+  }
+
+  @override
+  String remoteServerFilesUploaded(int count) {
+    return 'Uploaded $count file(s)';
+  }
+
+  @override
+  String get remoteServerFilesUploadFailed => 'Upload failed';
+
+  @override
+  String get remoteServerFilesEmpty => 'This folder is empty';
+
+  @override
+  String get remoteServerFilesLoadFailed => 'Couldn’t read this folder';
+
+  @override
+  String get remoteServerFilesUnsupported => 'SFTP isn’t available on this host';
+
+  @override
+  String get remoteServerFilesDisconnected => 'Disconnected — try again';
+
+  @override
+  String get remoteServerFilesFolder => 'Folder';
+
+  @override
+  String get remoteServerFilesSymlink => 'Symbolic link';
+
+  @override
+  String get remoteServerFilesOpenFolder => 'Open folder';
+
+  @override
+  String get remoteServerFilesPreview => 'Preview';
+
+  @override
+  String get remoteServerFilesRename => 'Rename';
+
+  @override
+  String get remoteServerFilesPermissions => 'Permissions';
+
+  @override
+  String remoteServerFilesPermissionsTitle(String name) {
+    return 'Change permissions for “$name”';
+  }
+
+  @override
+  String get remoteServerFilesPermissionsHint => 'Three or four octal digits, for example 644 or 755';
+
+  @override
+  String get remoteServerFilesPermissionsInvalid => 'Enter a valid octal mode (000–7777)';
+
+  @override
+  String get remoteServerFilesDelete => 'Delete';
+
+  @override
+  String remoteServerFilesDeleteTitle(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get remoteServerFilesDeleteBody => 'This deletes the real file or folder on the server and cannot be undone.';
+
+  @override
+  String get remoteServerFilesOperationFailed => 'The operation failed. Check permissions and retry.';
+
+  @override
+  String get remoteServerFilesEdit => 'Edit';
+
+  @override
+  String get remoteServerFilesSave => 'Save';
+
+  @override
+  String get remoteServerFilesSaved => 'Saved';
+
+  @override
+  String get remoteServerFilesSaveFailed => 'Couldn’t save';
+
+  @override
+  String get remoteServerFilesOverwriteTitle => 'Save and overwrite?';
+
+  @override
+  String get remoteServerFilesOverwriteBody => 'Your changes will be written back to the original server file.';
+
+  @override
+  String get remoteServerFilesTooLarge => 'Too large to edit on the phone';
+
+  @override
+  String get remoteServerFilesBinary => 'Binary file — no text preview';
+
+  @override
+  String get remoteTerminalTitle => 'SSH terminal';
+
+  @override
+  String get remoteTerminalNew => 'New terminal';
+
+  @override
+  String get remoteTerminalUnsupported => 'SSH terminal isn’t available on this host';
+
+  @override
+  String get remoteTerminalEnded => 'This shell ended; open a new one';
+
+  @override
+  String get remoteTerminalReconnected => 'Connection restored — the shell was reopened';
+
+  @override
+  String get remoteTerminalOpenHere => 'Open terminal here';
+
+  @override
+  String get remoteServerFilesPermissionsWarning => 'This changes permissions on the server immediately.';
+
+  @override
+  String remoteServerFilesOverwriteUploadTitle(String name) {
+    return 'Overwrite “$name”?';
+  }
+
+  @override
+  String get remoteServerFilesOverwriteUploadBody =>
+      'A file with this name already exists on the server; uploading replaces it.';
+
+  @override
+  String get remoteServerFilesDownload => 'Download to phone';
+
+  @override
+  String remoteServerFilesDownloaded(String name) {
+    return 'Downloaded “$name”';
+  }
+
+  @override
+  String remoteServerFilesTransfers(int count) {
+    return 'Transfers ($count running)';
+  }
+
+  @override
+  String get remoteServerFilesTransferTitle => 'Transfers';
+
+  @override
+  String get remoteServerFilesNoTransfers => 'No transfers in progress';
+
+  @override
+  String get remoteServerFilesTransferDone => 'Done';
+
+  @override
+  String get remoteServerFilesTransferFailed => 'Failed';
+
+  @override
+  String get remoteServerFilesClearFinished => 'Clear finished';
+
+  @override
+  String get remoteServerFilesNotFound => 'File or folder not found';
+
+  @override
+  String get remoteServerFilesPermissionDenied => 'Permission denied';
+
+  @override
+  String get remoteServerFilesAlreadyExists => 'A file with this name already exists';
+
+  @override
+  String get remoteServerFilesNotEmpty => 'The folder is not empty';
+
+  @override
+  String get remoteServerFilesIsDirectory => 'This is a folder';
+
+  @override
+  String get remoteServerFilesCancelled => 'Cancelled';
+
+  @override
+  String get remoteTerminalNone => 'No terminal open';
+
+  @override
+  String get remoteTerminalConnecting => 'Opening terminal…';
+
+  @override
+  String get remoteTerminalFailed => 'Couldn’t open the terminal';
+
+  @override
+  String get remoteTerminalPtyRefused => 'The server refused a terminal (PTY)';
+
+  @override
+  String get remoteTerminalConnectionLost => 'Connection lost — the shell ended';
+
+  @override
+  String get remoteServerFilesFavoriteAdd => 'Favourite this folder';
+
+  @override
+  String get remoteServerFilesFavoriteRemove => 'Remove favourite';
+
+  @override
+  String get remoteServerFilesFavorites => 'Favourites';
+
+  @override
+  String get remoteServerFilesFavoritesEmpty => 'No favourite folders yet. Tap the star inside a folder to add it.';
+
+  @override
+  String remoteServerFilesFavoriteAdded(String path) {
+    return 'Added 「$path」 to favourites';
+  }
+
+  @override
+  String get remoteServerFilesFavoriteRemoved => 'Removed from favourites';
+
+  @override
+  String get remoteServerFilesSelect => 'Select';
+
+  @override
+  String get remoteServerFilesSelectAll => 'Select all';
+
+  @override
+  String remoteServerFilesSelected(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String remoteServerFilesBatchDeleteTitle(int count) {
+    return 'Delete $count selected items?';
+  }
+
+  @override
+  String get remoteServerFilesBatchDeleteBody =>
+      'These are deleted from the server for good — this cannot be undone. A folder that is not empty can’t be deleted. Deleting stops at the first failure.';
+
+  @override
+  String remoteServerFilesBatchFailed(String name, String reason) {
+    return 'Couldn’t delete 「$name」: $reason';
+  }
+
+  @override
+  String get remoteServerFilesAddToWorkspace => 'Add to workspaces';
+
+  @override
+  String remoteServerFilesWorkspaceAdded(String path) {
+    return 'Added 「$path」 to workspaces';
+  }
+
+  @override
+  String get remoteServerFilesWorkspaceFailed => 'Couldn’t add it — connect this host’s DSH first';
+
+  @override
+  String get remoteServerFilesAttach => 'Add to chat attachments';
+
+  @override
+  String get remoteServerFilesAttachTooLarge => 'Too large to attach to a chat';
+
+  @override
+  String get remoteServerFilesAttachFailed => 'Couldn’t read the file — nothing was attached';
+
+  @override
+  String get remoteServerFilesSearch => 'Search file names';
+
+  @override
+  String get remoteServerFilesSearchHint => 'Search this folder and its subfolders';
+
+  @override
+  String get remoteServerFilesSearchEmpty => 'No matching files';
+
+  @override
+  String get remoteServerFilesSearchStop => 'Stop searching';
+
+  @override
+  String get remoteServerFilesSearching => 'Searching…';
+
+  @override
+  String remoteServerFilesSearchResults(int count) {
+    return '$count found';
+  }
+
+  @override
+  String get remoteServerFilesCopyTo => 'Copy to';
+
+  @override
+  String get remoteServerFilesMoveTo => 'Move to';
+
+  @override
+  String get remoteServerFilesDestHint => 'An absolute path, e.g. /srv/app';
+
+  @override
+  String get remoteServerFilesDestInvalid => 'Enter an absolute path on the server';
+
+  @override
+  String get remoteServerFilesSamePlace => 'That is where the file already is — pick another folder';
+
+  @override
+  String remoteServerFilesConfirmCopyTitle(String to) {
+    return 'Copy to 「$to」?';
+  }
+
+  @override
+  String remoteServerFilesConfirmMoveTitle(String to) {
+    return 'Move to 「$to」?';
+  }
+
+  @override
+  String get remoteServerFilesConfirmCopyBody =>
+      'A file with the same name there is overwritten — this cannot be undone. Folders are not copied.';
+
+  @override
+  String get remoteServerFilesConfirmMoveBody =>
+      'A file with the same name there is overwritten — this cannot be undone. A symlink moves as itself.';
+
+  @override
+  String get remoteServerFilesCopied => 'Copied';
+
+  @override
+  String get remoteServerFilesMoved => 'Moved';
+
+  @override
+  String get remoteServerFilesRetryTransfer => 'Retry';
+
+  @override
+  String get remoteServerFilesHostChanged => 'The host changed, so nothing was done — switch back to this host first';
+
+  @override
+  String get remoteHostInfoTitle => 'Host info';
+
+  @override
+  String get remoteHostInfoConnection => 'Connection';
+
+  @override
+  String get remoteHostInfoAddress => 'Address';
+
+  @override
+  String get remoteHostInfoAuth => 'Sign-in';
+
+  @override
+  String get remoteHostInfoAuthPassword => 'Password';
+
+  @override
+  String get remoteHostInfoAuthKey => 'Private key';
+
+  @override
+  String get remoteHostInfoFingerprint => 'Server fingerprint';
+
+  @override
+  String get remoteHostInfoOwnership => 'Instance';
+
+  @override
+  String get remoteHostInfoFeatures => 'Files and terminal';
+
+  @override
+  String get remoteHostInfoFeaturesUnknown => 'Known once connected';
+
+  @override
+  String get remoteHostInfoFeatureSftp => 'SFTP files';
+
+  @override
+  String get remoteHostInfoFeaturePty => 'SSH terminal';
+
+  @override
+  String get remoteHostInfoFeatureNone => 'Neither available';
+
+  @override
+  String get remoteHostInfoSystem => 'Remote system';
+
+  @override
+  String get remoteHostInfoReading => 'Reading…';
+
+  @override
+  String get remoteHostInfoFailed => 'Couldn’t read the host info';
+
+  @override
+  String get remoteHostInfoReadOnly => 'Read-only — nothing on the server is changed';
+
+  @override
+  String get remoteHostInfoOs => 'System';
+
+  @override
+  String get remoteHostInfoKernel => 'Kernel';
+
+  @override
+  String get remoteHostInfoArch => 'Architecture';
+
+  @override
+  String get remoteHostInfoHostname => 'Host name';
+
+  @override
+  String get remoteHostInfoCpus => 'CPU cores';
+
+  @override
+  String get remoteHostInfoMemory => 'Memory';
+
+  @override
+  String get remoteHostInfoLoad => 'Load';
+
+  @override
+  String get remoteHostInfoUptime => 'Uptime';
+
+  @override
+  String get remoteHostInfoDisk => 'Disk /';
+
+  @override
+  String get remoteHostInfoLimits => 'File manager limits';
+
+  @override
+  String get remoteHostInfoLimitRecursive => 'Copying is not recursive: a whole folder is never copied';
+
+  @override
+  String get remoteHostInfoLimitBatchDownload => 'No batch download to the phone — one file at a time';
+
+  @override
+  String get remoteHostInfoLimitHeic => 'HEIC images can’t be previewed';
+
+  @override
+  String get remoteHostInfoLimitSearch => 'Search covers the current folder tree only, not the whole disk';
+
+  @override
+  String get remoteHostInfoLimitSymlink => 'Symlinks are labelled, never followed into';
+
+  @override
+  String get remoteHostInfoRetryHint => 'Check that this host is reachable, then try again';
+
+  @override
+  String get remoteOnlyNoEngine => 'This build has no local engine — connect a remote host';
+
+  @override
   String get remotePairEntry => 'Pair a computer by scanning';
 
   @override

@@ -3,8 +3,27 @@
 # action, other folders, the Release settings Xcode adds for installing. It can't be run here
 # (no signing, and Release doesn't run on the simulator), so this builds one without signing and
 # looks inside for what a phone would need to get to its first frame.
-# Run from the repository root, with the engine prepared. Everything goes up as annotations.
+#
+# Two variants share it:
+#   check-archive.sh                 Full: app/ios/Engine prepared, engine embedded
+#   check-archive.sh --remote-only   Remote Only: no Engine, and the app must not carry any
+#                                    engine framework or runtime archive
+# Run from the repository root on macOS. Everything goes up as annotations.
 set -uo pipefail
+
+mode=full
+case "${1:-}" in
+  '') ;;
+  --remote-only) mode=remote-only ;;
+  *)
+    printf 'usage: %s [--remote-only]\n' "$0" >&2
+    exit 2
+    ;;
+esac
+if [ "$mode" = full ] && [ ! -f app/ios/Engine/.ready ]; then
+  printf '::error title=archive::the Full archive needs app/ios/Engine; run tooling/ios/prepare-engine.sh, or pass --remote-only\n'
+  exit 1
+fi
 
 note() { printf '::notice title=%s::%s\n' "$1" "$(printf '%s' "$2" | tr '\n' ' ' | cut -c1-900)"; }
 fail() { printf '::error title=archive::%s\n' "$(printf '%s' "$1" | tr '\n' ' ' | cut -c1-900)"; failed=1; }
@@ -16,11 +35,27 @@ bash tooling/ios/build-phone-self-runner.sh || { fail 'phone native library prep
 
 archive="$RUNNER_TEMP/Runner.xcarchive"
 log="$(mktemp)"
-(cd app && flutter build ios --release --no-codesign --config-only) >"$log" 2>&1 || {
+flutter_args=(build ios --release --no-codesign --config-only)
+if [ "$mode" = remote-only ]; then
+  flutter_args+=(--dart-define=DSH_REMOTE_ONLY=true)
+fi
+(cd app && flutter "${flutter_args[@]}") >"$log" 2>&1 || {
   tail -20 "$log"
   fail "flutter couldn't write the configuration: $(tail -3 "$log")"
   exit 1
 }
+if [ "$mode" = remote-only ]; then
+  # The Dart side hides local-engine entries behind this define; fail before the long
+  # archive if the configuration didn't take it. Flutter stores DART_DEFINES in
+  # Generated.xcconfig as comma-separated base64 entries.
+  defines="$(sed -n 's/^DART_DEFINES=//p' app/ios/Flutter/Generated.xcconfig | head -1)"
+  decoded="$(printf '%s' "$defines" |
+    python3 -c 'import base64, sys; print(",".join(base64.b64decode(part).decode("utf-8", "replace") for part in sys.stdin.read().strip().split(",") if part))' 2>/dev/null)"
+  case "$decoded" in
+    *DSH_REMOTE_ONLY=true*) ;;
+    *) fail "the Remote Only configuration is missing DSH_REMOTE_ONLY=true (DART_DEFINES=${defines:-empty})" ;;
+  esac
+fi
 xcodebuild archive -workspace app/ios/Runner.xcworkspace -scheme Runner -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$archive" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO >"$log" 2>&1
@@ -35,20 +70,38 @@ fi
 app="$archive/Products/Applications/Runner.app"
 [ -d "$app" ] || { fail "no Runner.app in the archive"; exit 1; }
 frameworks="$app/Frameworks"
+note 'archive variant' "$mode"
 note 'archive frameworks' "$(ls "$frameworks" | tr '\n' ' ')"
-# What the engine opens itself, by these exact paths, when it starts.
-for name in DshNodeHost DshFlock DshRequireBuiltin DshGuest DshGuestBridge; do
-  [ -f "$frameworks/$name.framework/$name" ] || fail "the engine needs $name.framework/$name"
-done
-guest="$frameworks/DshGuest.framework"
-for name in DshGuest DshGuestBridge; do
-  if [ -f "$frameworks/$name.framework/$name" ]; then
-    lipo "$frameworks/$name.framework/$name" -verify_arch arm64 || fail "$name has no arm64 slice"
-  fi
-done
-for name in LICENSE.txt SOURCE.txt iSH-LICENSE.md iSH-LICENSE.IOS iSH-build.patch iSH-job-runtime.patch; do
-  [ -s "$guest/$name" ] || fail "DshGuest is missing its source/license notice: $name"
-done
+
+engine_frameworks='DshNodeHost DshFlock DshRequireBuiltin DshGuest DshGuestBridge'
+if [ "$mode" = remote-only ]; then
+  # Remote Only connects to other hosts; every one of these is code it never loads.
+  for name in $engine_frameworks NodeMobile; do
+    [ -e "$frameworks/$name.framework" ] && fail "Remote Only carries $name.framework"
+  done
+  [ -e "$app/dsh-runtime" ] && fail 'Remote Only carries the dsh-runtime resources'
+  runtime_file="$(find "$app" \( -name 'runtime.zip' -o -name 'runtime-download.json' \) | head -3 | tr '\n' ' ')"
+  [ -n "$runtime_file" ] && fail "Remote Only carries a runtime archive or download source: $runtime_file"
+  note 'archive engine' 'none: no engine framework and no runtime archive'
+else
+  # What the engine opens itself, by these exact paths, when it starts.
+  for name in $engine_frameworks; do
+    [ -f "$frameworks/$name.framework/$name" ] || fail "the engine needs $name.framework/$name"
+  done
+  guest="$frameworks/DshGuest.framework"
+  for name in DshGuest DshGuestBridge; do
+    if [ -f "$frameworks/$name.framework/$name" ]; then
+      lipo "$frameworks/$name.framework/$name" -verify_arch arm64 || fail "$name has no arm64 slice"
+    fi
+  done
+  for name in LICENSE.txt SOURCE.txt iSH-LICENSE.md iSH-LICENSE.IOS iSH-build.patch iSH-job-runtime.patch; do
+    [ -s "$guest/$name" ] || fail "DshGuest is missing its source/license notice: $name"
+  done
+  # A Full app that installs its local engine in the app carries one of these.
+  [ -f "$app/dsh-runtime/runtime.zip" ] || [ -f "$app/dsh-runtime/runtime-download.json" ] ||
+    fail 'the Full app has no dsh-runtime archive or download source'
+  note 'archive engine' 'engine frameworks embedded, runtime archive or download source present'
+fi
 note 'archive size' "$(du -sh "$app" | cut -f1), top level: $(ls "$app" | grep -vE '\.(png|car|nib|storyboardc|lproj)$' | head -30 | tr '\n' ' ')"
 
 # The Rust library is linked into Runner, not a loose executable or dylib. The
@@ -112,10 +165,16 @@ done
 
 # The same app as an unsigned .ipa, for a phone: a signing tool (Xcode, or one that signs with
 # an Apple ID) still has to sign it before it installs.
+ipa="DSH-Go-unsigned.ipa"
+artifact='ios-unsigned-ipa'
+if [ "$mode" = remote-only ]; then
+  ipa="DSH-Go-remote-only-unsigned.ipa"
+  artifact='ios-remote-only-unsigned-ipa'
+fi
 mkdir -p "$RUNNER_TEMP/ipa/Payload"
 cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
-(cd "$RUNNER_TEMP/ipa" && /usr/bin/ditto -c -k --keepParent Payload "$RUNNER_TEMP/DSH-Go-unsigned.ipa")
-note 'archive ipa' "$(du -h "$RUNNER_TEMP/DSH-Go-unsigned.ipa" | cut -f1), unsigned, in the ios-unsigned-ipa artifact"
+(cd "$RUNNER_TEMP/ipa" && /usr/bin/ditto -c -k --keepParent Payload "$RUNNER_TEMP/$ipa")
+note 'archive ipa' "$(du -h "$RUNNER_TEMP/$ipa" | cut -f1), unsigned, in the $artifact artifact"
 
 note 'archive' "$( [ "$failed" -eq 0 ] && echo 'looks whole' || echo 'see the errors')"
 exit "$failed"

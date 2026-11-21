@@ -11,7 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../build_variant.dart';
 import '../../links/app_links.dart';
+import '../../l10n/l10n.dart';
 import '../../pets/overlay_channel.dart' show petOverlayChannelProvider;
 import '../../pets/pet_overlay_bridge.dart';
 import '../../state/adaptive_layout_state.dart';
@@ -21,6 +23,7 @@ import '../../state/quick_panel_state.dart';
 import '../../state/sessions_state.dart' show currentSessionProvider;
 import '../bots/bot_alerts.dart';
 import '../chat/chat_screen.dart';
+import '../common/brief_notice.dart';
 import '../chat/composer_toast.dart' show composerToastGap;
 import '../engine/engine_screen.dart';
 import '../engine/reset_outcome.dart';
@@ -233,6 +236,13 @@ class _HomeShellState extends ConsumerState<HomeShell> with TickerProviderStateM
   }
 
   void _openDestination(DrawerDestination destination) {
+    // Remote Only has no local engine, so 引擎 has nothing to show or install.
+    // Every route to it (drawer, quick panel, identity bar, safe-mode banner)
+    // lands here, so this one check covers them all.
+    if (remoteOnlyBuild && destination == DrawerDestination.engine) {
+      showBriefNotice(context, appL10n.remoteOnlyNoEngine);
+      return;
+    }
     final page = switch (destination) {
       DrawerDestination.web => const LocalWebScreen(),
       DrawerDestination.remote => const RemoteScreen(),

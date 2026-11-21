@@ -23,6 +23,8 @@ void main() {
       overrides: [
         secretStoreProvider.overrideWithValue(secrets),
         sshTransportFactoryProvider.overrideWithValue(server.connect),
+        // No platform connectivity plugin in widget tests.
+        networkKicksProvider.overrideWithValue(const Stream<void>.empty()),
       ],
       home: Builder(builder: (context) => Scaffold(body: TextButton(
         onPressed: () => Navigator.of(context).push<void>(

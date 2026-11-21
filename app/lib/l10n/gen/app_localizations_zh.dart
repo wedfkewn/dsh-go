@@ -16760,6 +16760,633 @@ class L10nZh extends L10n {
   String get searchKwRemoteCompactHistory => '精简 简洁 历史 工具 传输 流量 远程 compact slim lite';
 
   @override
+  String get remoteWorkbench => '远程工作台';
+
+  @override
+  String get remoteWorkbenchIntro => '这台服务器上的聊天、文件与配置，集中在这里。';
+
+  @override
+  String get remoteWorkbenchOpen => '进入工作台';
+
+  @override
+  String get remoteWorkbenchNeedsConnection => '连接服务器后可进入';
+
+  @override
+  String get remoteWorkbenchSsh => 'SSH';
+
+  @override
+  String get remoteWorkbenchDsh => 'DSH';
+
+  @override
+  String get remoteWorkbenchReady => '已就绪';
+
+  @override
+  String get remoteWorkbenchNotReady => '未就绪';
+
+  @override
+  String get remoteWorkbenchAllChats => '全部对话';
+
+  @override
+  String get remoteWorkbenchCurrentWorkspace => '当前工作区';
+
+  @override
+  String get remoteWorkbenchCurrentModel => '当前模型';
+
+  @override
+  String get remoteWorkbenchAiChat => 'AI 对话';
+
+  @override
+  String get remoteWorkbenchAiChatHint => '查看并继续这台服务器的对话';
+
+  @override
+  String get remoteWorkbenchWorkspaces => '工作区';
+
+  @override
+  String get remoteWorkbenchWorkspacesHint => '登记和切换服务器目录';
+
+  @override
+  String get remoteWorkbenchServerFiles => '服务器文件';
+
+  @override
+  String get remoteWorkbenchServerFilesHint => '通过 SFTP 浏览整台服务器';
+
+  @override
+  String get remoteWorkbenchTerminal => 'SSH 终端';
+
+  @override
+  String get remoteWorkbenchTerminalHint => '直接打开服务器 Shell';
+
+  @override
+  String get remoteWorkbenchModels => '模型管理';
+
+  @override
+  String get remoteWorkbenchModelsHint => '切换与配置远程模型渠道';
+
+  @override
+  String get remoteWorkbenchPlugins => '插件';
+
+  @override
+  String get remoteWorkbenchPluginsHint => '管理服务器上的 DSH 插件';
+
+  @override
+  String get remoteWorkbenchHostInfo => '主机信息';
+
+  @override
+  String get remoteWorkbenchHostInfoHint => '系统、资源与实例所有权';
+
+  @override
+  String get remoteWorkbenchSettings => '连接设置';
+
+  @override
+  String get remoteWorkbenchSettingsHint => '地址、认证与实例模式';
+
+  @override
+  String get remoteWorkbenchSwitch => '切换';
+
+  @override
+  String get remoteWorkbenchSoonSftp => '文件管理器下一步接入';
+
+  @override
+  String get remoteWorkbenchSoonPty => '终端页面下一步接入';
+
+  @override
+  String get remoteWorkbenchSoonHostInfo => '主机信息接口就绪后可用';
+
+  @override
+  String get remoteDiscoverTitle => '发现已运行的 DSH';
+
+  @override
+  String get remoteDiscoverHint => '扫描服务器上已在运行的实例，确认后再连接；不会停止或重启任何进程。';
+
+  @override
+  String get remoteDiscoverSoon => '接口就绪后可用；现在请手动填写端口与 Token。';
+
+  @override
+  String get remoteDiscoverBadge => '即将支持';
+
+  @override
+  String get remoteOwnershipAttach => '只连接 · 你的实例';
+
+  @override
+  String get remoteOwnershipManaged => '托管 · App 启动';
+
+  @override
+  String get remoteStopManaged => '停止托管 DSH';
+
+  @override
+  String get remoteStopManagedTitle => '停止这个托管实例？';
+
+  @override
+  String get remoteStopManagedBody => '只会停止由这个 App 启动的 DSH，不会动你手动运行的其他实例；停止后自动重连不会再次启动它。';
+
+  @override
+  String get remoteStopManagedSoon => '停止接口就绪后可用';
+
+  @override
+  String get remoteErrAbsolutePath => '只连接模式请填写绝对路径（以 / 开头）';
+
+  @override
+  String get remoteWorkbenchEntries => '服务器功能';
+
+  @override
+  String get remoteOwnershipManagedStarted => '托管 · 本次启动';
+
+  @override
+  String get remoteOwnershipManagedReused => '托管 · 复用已有';
+
+  @override
+  String get remoteDiscoverScanning => '正在扫描…';
+
+  @override
+  String get remoteDiscoverEmptyTitle => '没有找到正在运行的 DSH';
+
+  @override
+  String get remoteDiscoverEmptyBody => '确认服务器上已启动 dsh web，或手动填写端口与 Token。';
+
+  @override
+  String get remoteDiscoverFailed => '扫描失败';
+
+  @override
+  String get remoteDiscoverSelectTitle => '选择一个实例';
+
+  @override
+  String get remoteDiscoverSelectBody => '只会连接你选中的实例，不会启动、停止或重启它。';
+
+  @override
+  String get remoteDiscoverManaged => 'App 启动';
+
+  @override
+  String get remoteDiscoverPorts => '端口';
+
+  @override
+  String get remoteDiscoverNoPort => '未发现监听端口';
+
+  @override
+  String get remoteDiscoverTokenKnown => '已取得 Token';
+
+  @override
+  String get remoteDiscoverManualTokenHint => '该实例的 Token 需要你手动填写';
+
+  @override
+  String get remoteDiscoverUse => '使用这个实例';
+
+  @override
+  String get remoteDiscoverAgain => '重新扫描';
+
+  @override
+  String get remoteStopManagedDone => '托管实例已停止';
+
+  @override
+  String get remoteStopManagedFailed => '未能停止托管实例，请检查连接后重试';
+
+  @override
+  String get remoteDshTarget => '目标地址';
+
+  @override
+  String get remoteDshTargetHelp => '隧道从服务器侧连接这个地址上的 DSH；默认 127.0.0.1，实例只监听其他网卡时改这里。';
+
+  @override
+  String get remoteErrTarget => '请填写可连接的地址，例如 127.0.0.1';
+
+  @override
+  String get remoteWorkbenchNoChats => '这台服务器还没有对话，打开后新建一个';
+
+  @override
+  String get remoteServerFilesTitle => '服务器文件';
+
+  @override
+  String get remoteServerFilesRoot => '根目录';
+
+  @override
+  String get remoteServerFilesHome => '主目录';
+
+  @override
+  String get remoteServerFilesHidden => '显示隐藏文件';
+
+  @override
+  String get remoteServerFilesNewFolder => '新建文件夹';
+
+  @override
+  String get remoteServerFilesNameHint => '文件夹名称';
+
+  @override
+  String get remoteServerFilesNameInvalid => '名称不能为空，也不能包含 /';
+
+  @override
+  String get remoteServerFilesUpload => '上传文件';
+
+  @override
+  String remoteServerFilesUploading(int done, int total, String name) {
+    return '正在上传 $done/$total：$name';
+  }
+
+  @override
+  String remoteServerFilesUploaded(int count) {
+    return '已上传 $count 个文件';
+  }
+
+  @override
+  String get remoteServerFilesUploadFailed => '上传失败';
+
+  @override
+  String get remoteServerFilesEmpty => '这个文件夹是空的';
+
+  @override
+  String get remoteServerFilesLoadFailed => '读取文件夹失败';
+
+  @override
+  String get remoteServerFilesUnsupported => '这台主机不支持 SFTP';
+
+  @override
+  String get remoteServerFilesDisconnected => '连接已断开，请重试';
+
+  @override
+  String get remoteServerFilesFolder => '文件夹';
+
+  @override
+  String get remoteServerFilesSymlink => '符号链接';
+
+  @override
+  String get remoteServerFilesOpenFolder => '打开文件夹';
+
+  @override
+  String get remoteServerFilesPreview => '预览';
+
+  @override
+  String get remoteServerFilesRename => '重命名';
+
+  @override
+  String get remoteServerFilesPermissions => '权限';
+
+  @override
+  String remoteServerFilesPermissionsTitle(String name) {
+    return '修改「$name」的权限';
+  }
+
+  @override
+  String get remoteServerFilesPermissionsHint => '三位或四位八进制，例如 644 或 755';
+
+  @override
+  String get remoteServerFilesPermissionsInvalid => '请输入有效的八进制权限（000–7777）';
+
+  @override
+  String get remoteServerFilesDelete => '删除';
+
+  @override
+  String remoteServerFilesDeleteTitle(String name) {
+    return '删除「$name」？';
+  }
+
+  @override
+  String get remoteServerFilesDeleteBody => '这会删除服务器上的真实文件或文件夹，无法撤销。';
+
+  @override
+  String get remoteServerFilesOperationFailed => '操作失败，请检查权限后重试';
+
+  @override
+  String get remoteServerFilesEdit => '编辑';
+
+  @override
+  String get remoteServerFilesSave => '保存';
+
+  @override
+  String get remoteServerFilesSaved => '已保存';
+
+  @override
+  String get remoteServerFilesSaveFailed => '保存失败';
+
+  @override
+  String get remoteServerFilesOverwriteTitle => '保存并覆盖？';
+
+  @override
+  String get remoteServerFilesOverwriteBody => '会把修改写回服务器上的原文件。';
+
+  @override
+  String get remoteServerFilesTooLarge => '文件太大，暂不支持在手机上编辑';
+
+  @override
+  String get remoteServerFilesBinary => '二进制文件，无法以文本预览';
+
+  @override
+  String get remoteTerminalTitle => 'SSH 终端';
+
+  @override
+  String get remoteTerminalNew => '新建终端';
+
+  @override
+  String get remoteTerminalUnsupported => '这台主机不支持 SSH 终端';
+
+  @override
+  String get remoteTerminalEnded => '终端已结束，可新建一个';
+
+  @override
+  String get remoteTerminalReconnected => '连接已恢复，已重新打开终端';
+
+  @override
+  String get remoteTerminalOpenHere => '在此打开终端';
+
+  @override
+  String get remoteServerFilesPermissionsWarning => '会立即修改服务器上的权限。';
+
+  @override
+  String remoteServerFilesOverwriteUploadTitle(String name) {
+    return '覆盖「$name」？';
+  }
+
+  @override
+  String get remoteServerFilesOverwriteUploadBody => '服务器上已有同名文件，上传会覆盖它。';
+
+  @override
+  String get remoteServerFilesDownload => '下载到手机';
+
+  @override
+  String remoteServerFilesDownloaded(String name) {
+    return '已下载「$name」';
+  }
+
+  @override
+  String remoteServerFilesTransfers(int count) {
+    return '传输（$count 个进行中）';
+  }
+
+  @override
+  String get remoteServerFilesTransferTitle => '传输';
+
+  @override
+  String get remoteServerFilesNoTransfers => '没有进行中的传输';
+
+  @override
+  String get remoteServerFilesTransferDone => '完成';
+
+  @override
+  String get remoteServerFilesTransferFailed => '失败';
+
+  @override
+  String get remoteServerFilesClearFinished => '清除已完成';
+
+  @override
+  String get remoteServerFilesNotFound => '文件或文件夹不存在';
+
+  @override
+  String get remoteServerFilesPermissionDenied => '没有权限执行这个操作';
+
+  @override
+  String get remoteServerFilesAlreadyExists => '同名文件已存在';
+
+  @override
+  String get remoteServerFilesNotEmpty => '文件夹不为空';
+
+  @override
+  String get remoteServerFilesIsDirectory => '这是一个文件夹';
+
+  @override
+  String get remoteServerFilesCancelled => '已取消';
+
+  @override
+  String get remoteTerminalNone => '没有打开的终端';
+
+  @override
+  String get remoteTerminalConnecting => '正在打开终端…';
+
+  @override
+  String get remoteTerminalFailed => '终端打开失败';
+
+  @override
+  String get remoteTerminalPtyRefused => '服务器拒绝分配终端（PTY）';
+
+  @override
+  String get remoteTerminalConnectionLost => '连接已断开，终端已结束';
+
+  @override
+  String get remoteServerFilesFavoriteAdd => '收藏此目录';
+
+  @override
+  String get remoteServerFilesFavoriteRemove => '取消收藏';
+
+  @override
+  String get remoteServerFilesFavorites => '收藏夹';
+
+  @override
+  String get remoteServerFilesFavoritesEmpty => '还没有收藏的目录。在目录里点星号就能收藏。';
+
+  @override
+  String remoteServerFilesFavoriteAdded(String path) {
+    return '已收藏「$path」';
+  }
+
+  @override
+  String get remoteServerFilesFavoriteRemoved => '已取消收藏';
+
+  @override
+  String get remoteServerFilesSelect => '选择';
+
+  @override
+  String get remoteServerFilesSelectAll => '全选';
+
+  @override
+  String remoteServerFilesSelected(int count) {
+    return '已选 $count 项';
+  }
+
+  @override
+  String remoteServerFilesBatchDeleteTitle(int count) {
+    return '删除选中的 $count 项？';
+  }
+
+  @override
+  String get remoteServerFilesBatchDeleteBody => '这些文件会从服务器上永久删除，无法撤销；非空目录无法删除。删除在第一个失败处停止。';
+
+  @override
+  String remoteServerFilesBatchFailed(String name, String reason) {
+    return '「$name」删除失败：$reason';
+  }
+
+  @override
+  String get remoteServerFilesAddToWorkspace => '加入工作区';
+
+  @override
+  String remoteServerFilesWorkspaceAdded(String path) {
+    return '已加入工作区：「$path」';
+  }
+
+  @override
+  String get remoteServerFilesWorkspaceFailed => '加入工作区失败，需要先连接这台主机的 DSH';
+
+  @override
+  String get remoteServerFilesAttach => '加入对话附件';
+
+  @override
+  String get remoteServerFilesAttachTooLarge => '文件太大，无法加入对话附件';
+
+  @override
+  String get remoteServerFilesAttachFailed => '读取文件失败，未加入对话附件';
+
+  @override
+  String get remoteServerFilesSearch => '搜索文件名';
+
+  @override
+  String get remoteServerFilesSearchHint => '在当前目录及子目录中搜索';
+
+  @override
+  String get remoteServerFilesSearchEmpty => '没有找到匹配的文件';
+
+  @override
+  String get remoteServerFilesSearchStop => '停止搜索';
+
+  @override
+  String get remoteServerFilesSearching => '正在搜索…';
+
+  @override
+  String remoteServerFilesSearchResults(int count) {
+    return '找到 $count 项';
+  }
+
+  @override
+  String get remoteServerFilesCopyTo => '复制到';
+
+  @override
+  String get remoteServerFilesMoveTo => '移动到';
+
+  @override
+  String get remoteServerFilesDestHint => '绝对路径，例如 /srv/app';
+
+  @override
+  String get remoteServerFilesDestInvalid => '请输入服务器上的绝对路径';
+
+  @override
+  String get remoteServerFilesSamePlace => '目标与源是同一位置，换一个目录';
+
+  @override
+  String remoteServerFilesConfirmCopyTitle(String to) {
+    return '复制到「$to」？';
+  }
+
+  @override
+  String remoteServerFilesConfirmMoveTitle(String to) {
+    return '移动到「$to」？';
+  }
+
+  @override
+  String get remoteServerFilesConfirmCopyBody => '目标位置若已有同名文件会被覆盖，无法撤销。文件夹不会被复制。';
+
+  @override
+  String get remoteServerFilesConfirmMoveBody => '目标位置若已有同名文件会被覆盖，无法撤销。符号链接按链接本身移动。';
+
+  @override
+  String get remoteServerFilesCopied => '已复制';
+
+  @override
+  String get remoteServerFilesMoved => '已移动';
+
+  @override
+  String get remoteServerFilesRetryTransfer => '重试';
+
+  @override
+  String get remoteServerFilesHostChanged => '主机已切换，这次操作没有执行；请先切回这台主机';
+
+  @override
+  String get remoteHostInfoTitle => '主机信息';
+
+  @override
+  String get remoteHostInfoConnection => '连接';
+
+  @override
+  String get remoteHostInfoAddress => '地址';
+
+  @override
+  String get remoteHostInfoAuth => '认证方式';
+
+  @override
+  String get remoteHostInfoAuthPassword => '密码';
+
+  @override
+  String get remoteHostInfoAuthKey => '私钥';
+
+  @override
+  String get remoteHostInfoFingerprint => '服务器指纹';
+
+  @override
+  String get remoteHostInfoOwnership => '实例归属';
+
+  @override
+  String get remoteHostInfoFeatures => '文件与终端';
+
+  @override
+  String get remoteHostInfoFeaturesUnknown => '连接后可知';
+
+  @override
+  String get remoteHostInfoFeatureSftp => 'SFTP 文件';
+
+  @override
+  String get remoteHostInfoFeaturePty => 'SSH 终端';
+
+  @override
+  String get remoteHostInfoFeatureNone => '都不支持';
+
+  @override
+  String get remoteHostInfoSystem => '远程系统';
+
+  @override
+  String get remoteHostInfoReading => '正在读取…';
+
+  @override
+  String get remoteHostInfoFailed => '读取主机信息失败';
+
+  @override
+  String get remoteHostInfoReadOnly => '只读取，不改动服务器上的任何东西';
+
+  @override
+  String get remoteHostInfoOs => '系统';
+
+  @override
+  String get remoteHostInfoKernel => '内核';
+
+  @override
+  String get remoteHostInfoArch => '架构';
+
+  @override
+  String get remoteHostInfoHostname => '主机名';
+
+  @override
+  String get remoteHostInfoCpus => 'CPU 核数';
+
+  @override
+  String get remoteHostInfoMemory => '内存';
+
+  @override
+  String get remoteHostInfoLoad => '负载';
+
+  @override
+  String get remoteHostInfoUptime => '运行时长';
+
+  @override
+  String get remoteHostInfoDisk => '磁盘 /';
+
+  @override
+  String get remoteHostInfoLimits => '文件管理限制';
+
+  @override
+  String get remoteHostInfoLimitRecursive => '复制不递归：整个目录不会被复制';
+
+  @override
+  String get remoteHostInfoLimitBatchDownload => '不能批量下载到手机，一次一个文件';
+
+  @override
+  String get remoteHostInfoLimitHeic => 'HEIC 图片不能预览';
+
+  @override
+  String get remoteHostInfoLimitSearch => '搜索只在当前目录树下，不做全盘搜索';
+
+  @override
+  String get remoteHostInfoLimitSymlink => '符号链接只标注，不跟随进入';
+
+  @override
+  String get remoteHostInfoRetryHint => '检查这台主机是否可连接，然后重试';
+
+  @override
+  String get remoteOnlyNoEngine => '这个版本不含本机引擎，请连接远程主机';
+
+  @override
   String get remotePairEntry => '扫码配对电脑';
 
   @override

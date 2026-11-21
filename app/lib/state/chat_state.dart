@@ -11,6 +11,7 @@ import '../usage/usage_stats.dart';
 import 'attachments.dart';
 import 'chat_error_text.dart';
 import 'connection_state.dart';
+import 'read_list_identity.dart';
 import 'hosts_state.dart';
 import 'models_state.dart';
 import 'notify_state.dart' show appForegroundProvider;
@@ -524,7 +525,10 @@ class ChatController extends Notifier<ChatState> {
   Duration? _skew;
   bool _sameClock = false;
 
-  DshClient? get _client => ref.read(activeConnectionProvider).value?.client;
+  /// Writes (prompt, cancel, approvals, commands) go to the selected host's
+  /// own connection: the 本机 fallback shown for a missing SSH host must never
+  /// receive them.
+  DshClient? get _client => ref.read(activeWriteConnectionProvider)?.client;
 
   bool get _canControl =>
       _synchronized && (_followEpoch?.isCurrent ?? true) && identical(_snapshotGeneration, _client?.mux.generation);
@@ -606,7 +610,7 @@ class ChatController extends Notifier<ChatState> {
 
     ref.onCancel(releaseLater);
     ref.onResume(() => release?.cancel());
-    final client = ref.watch(activeConnectionProvider.select((c) => c.value?.client));
+    final client = ref.watch(activeWriteConnectionProvider.select((c) => c?.client));
     ref.onDispose(() {
       // Invalidation runs before a lazy rebuild replaces the still-mounted Ref.
       _modelChange = null;

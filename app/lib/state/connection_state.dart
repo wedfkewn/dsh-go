@@ -304,8 +304,17 @@ class RemoteConnectionController extends AsyncNotifier<HostConnection?> {
     final clients = link.clients.listen((client) => state = AsyncData(wrap(client)));
     // After a failed first open, the link may still come back on its own
     // (network kick, "重试"): pick the client up then.
+    final sshLink = link is SshHostLink ? link : null;
     final statuses = link.statuses.listen((s) {
       if (s.isConnected && state.hasError && !state.isLoading) ref.invalidateSelf();
+      // A deliberate stop has no live client left: drop the stale connection
+      // so the page shows the stopped state instead of failing every request.
+      if (s.phase == HostLinkPhase.failed &&
+          !state.isLoading &&
+          !state.hasError &&
+          (sshLink?.stoppedByUser ?? false)) {
+        ref.invalidateSelf();
+      }
     });
     ref.onDispose(() {
       unawaited(clients.cancel());
@@ -319,12 +328,13 @@ class RemoteConnectionController extends AsyncNotifier<HostConnection?> {
     final link = ref.read(hostLinkProvider(host));
     if (link == null) return;
     final phase = link.status.phase;
-    // A link still retrying on its own just skips its wait.
-    if (phase != HostLinkPhase.reconnecting && (phase == HostLinkPhase.failed || state.hasError)) {
-      ref.invalidateSelf();
-    } else {
+    // The link owns retry: it also clears a deliberate stop, which invalidating
+    // this provider would not do.
+    if (phase == HostLinkPhase.reconnecting || phase == HostLinkPhase.failed) {
       link.retry();
+      return;
     }
+    if (state.hasError) ref.invalidateSelf();
   }
 }
 

@@ -10,6 +10,15 @@ enum SshDshMode { managed, attachOnly }
 /// The remote `dsh web` launch command used when none is configured.
 const defaultDshLaunchCommand = 'dsh web';
 
+/// Where the app reaches an existing DSH from the SSH server: loopback for an
+/// instance on the server itself, another address only when that DSH runs in
+/// a container or on a second machine the server can dial.
+const defaultAttachHost = '127.0.0.1';
+
+/// Why an attach-only host cannot connect as configured. Text-free so the
+/// link and the form make the same decision.
+enum SshAttachProblem { port, token, target, relativeWorkingDirectory }
+
 /// One saved SSH host. Persisted as JSON in SharedPreferences (no secrets).
 class SshHostConfig {
   const SshHostConfig({
@@ -22,6 +31,7 @@ class SshHostConfig {
     this.launchCommand = defaultDshLaunchCommand,
     this.dshMode = SshDshMode.managed,
     this.remotePort = 3080,
+    this.attachHost = defaultAttachHost,
     this.compression = true,
     this.workingDirectory,
     this.hostKeyType,
@@ -41,6 +51,10 @@ class SshHostConfig {
 
   /// Fixed remote loopback port in attach-only mode.
   final int remotePort;
+
+  /// Address the SSH server dials to reach the existing DSH in attach-only
+  /// mode. Loopback unless the instance lives elsewhere, e.g. in a container.
+  final String attachHost;
 
   /// Negotiate delayed SSH compression when supported by the server.
   final bool compression;
@@ -64,8 +78,43 @@ class SshHostConfig {
 
   /// Fields that require a new SSH session when they change (name and the
   /// pinned key don't).
-  String get connectionKey =>
-      [host, port, user, auth.name, dshMode.name, remotePort, compression, launchCommand.trim()].join('\u0000');
+  String get connectionKey => [
+    host,
+    port,
+    user,
+    auth.name,
+    dshMode.name,
+    remotePort,
+    attachHost.trim(),
+    compression,
+    launchCommand.trim(),
+  ].join('\u0000');
+
+  /// [attachHost] as dialled, with an empty field falling back to loopback.
+  String get normalizedAttachHost {
+    final value = attachHost.trim();
+    return value.isEmpty ? defaultAttachHost : value;
+  }
+
+  /// A plain host or address the SSH server can dial: no scheme, port or path.
+  static bool isDialableHost(String value) =>
+      value.trim().isNotEmpty && RegExp(r'^[A-Za-z0-9._:\[\]-]+$').hasMatch(value.trim());
+
+  /// Why this attach-only host cannot be used yet, or null. [hasToken] comes
+  /// from the secret store; the config never holds the token.
+  SshAttachProblem? attachProblem({required bool hasToken}) {
+    if (dshMode != SshDshMode.attachOnly) return null;
+    if (remotePort < 1 || remotePort > 65535) return SshAttachProblem.port;
+    if (!hasToken) return SshAttachProblem.token;
+    if (!isDialableHost(attachHost)) return SshAttachProblem.target;
+    // The app never runs a command against an existing instance, so it cannot
+    // learn the server's home: a `~` path would go to DSH unexpanded.
+    final directory = workingDirectory?.trim();
+    if (directory != null && directory.isNotEmpty && !directory.startsWith('/')) {
+      return SshAttachProblem.relativeWorkingDirectory;
+    }
+    return null;
+  }
 
   /// Changing where we connect forgets the pinned key: it belonged to the old
   /// machine.
@@ -78,6 +127,7 @@ class SshHostConfig {
     String? launchCommand,
     SshDshMode? dshMode,
     int? remotePort,
+    String? attachHost,
     bool? compression,
     String? Function()? workingDirectory,
     String? Function()? hostKeyType,
@@ -94,6 +144,7 @@ class SshHostConfig {
       launchCommand: launchCommand ?? this.launchCommand,
       dshMode: dshMode ?? this.dshMode,
       remotePort: remotePort ?? this.remotePort,
+      attachHost: attachHost ?? this.attachHost,
       compression: compression ?? this.compression,
       workingDirectory: workingDirectory != null ? workingDirectory() : this.workingDirectory,
       hostKeyType: hostKeyType != null ? hostKeyType() : (moved ? null : this.hostKeyType),
@@ -111,6 +162,7 @@ class SshHostConfig {
     'launchCommand': launchCommand,
     'dshMode': dshMode.name,
     'remotePort': remotePort,
+    if (attachHost != defaultAttachHost) 'attachHost': attachHost,
     'compression': compression,
     if (workingDirectory != null) 'workingDirectory': workingDirectory,
     if (hostKeyType != null) 'hostKeyType': hostKeyType,
@@ -128,6 +180,7 @@ class SshHostConfig {
     final command = raw['launchCommand'];
     final cwd = raw['workingDirectory'];
     final remotePort = raw['remotePort'];
+    final attachHost = raw['attachHost'];
     if (raw['dshMode'] == 'attachOnly' && (remotePort is! int || remotePort < 1 || remotePort > 65535)) {
       return null;
     }
@@ -142,6 +195,7 @@ class SshHostConfig {
       workingDirectory: cwd is String && cwd.trim().isNotEmpty ? cwd : null,
       dshMode: raw['dshMode'] == 'attachOnly' ? SshDshMode.attachOnly : SshDshMode.managed,
       remotePort: remotePort is int && remotePort > 0 && remotePort < 65536 ? remotePort : 3080,
+      attachHost: attachHost is String && isDialableHost(attachHost) ? attachHost.trim() : defaultAttachHost,
       compression: raw['compression'] is bool ? raw['compression'] as bool : true,
       hostKeyType: raw['hostKeyType'] as String?,
       hostKeyFingerprint: raw['hostKeyFingerprint'] as String?,
@@ -166,6 +220,7 @@ class SshHostConfig {
       other.launchCommand == launchCommand &&
       other.dshMode == dshMode &&
       other.remotePort == remotePort &&
+      other.attachHost == attachHost &&
       other.compression == compression &&
       other.workingDirectory == workingDirectory &&
       other.hostKeyType == hostKeyType &&
@@ -173,8 +228,8 @@ class SshHostConfig {
 
   @override
   int get hashCode =>
-      Object.hash(id, name, host, port, user, auth, launchCommand, dshMode, remotePort, compression,
-          workingDirectory, hostKeyType, hostKeyFingerprint);
+      Object.hash(id, name, host, port, user, auth, launchCommand, dshMode, remotePort, attachHost,
+          compression, workingDirectory, hostKeyType, hostKeyFingerprint);
 }
 
 /// The secret material for one SSH host, loaded from the [SecretStore].

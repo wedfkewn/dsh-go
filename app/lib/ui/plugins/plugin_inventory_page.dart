@@ -6,6 +6,7 @@
 
 import 'dart:async';
 
+import 'package:dsh_client/dsh_client.dart' show DshRemoteException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,7 +14,8 @@ import '../../l10n/l10n.dart';
 import '../../state/connection_state.dart';
 import '../../state/engine_settings_state.dart';
 import '../../state/plugin_config/plugin_config_state.dart';
-import '../../state/plugins_state.dart' show installedPluginsProvider;
+import '../../state/plugins_state.dart'
+    show PluginFailureKind, describePluginError, installedPluginsProvider;
 import '../../state/voice_scribe_settings.dart';
 import '../common/app_sheet.dart';
 import '../common/capsule_chip.dart';
@@ -33,6 +35,18 @@ import 'config/plugin_config_entries.dart';
 import 'plugin_detail_sheet.dart' show PluginHero;
 import 'plugin_widgets.dart';
 import 'voice_scribe_settings_page.dart';
+
+/// Why the plugin list could not be read. A relay that refuses the method
+/// (`METHOD_NOT_ALLOWED`) says plugins are toggle-only there, instead of the
+/// shared wording for a rejected settings value; every other error keeps the
+/// shared engine copy, which knows status codes and gateway failures.
+String pluginInventoryErrorText(Object error) {
+  if (error is DshRemoteException && error.code == 'METHOD_NOT_ALLOWED') {
+    final failure = describePluginError(error);
+    if (failure.kind == PluginFailureKind.unsupported) return failure.message;
+  }
+  return describeSettingsError(error);
+}
 
 /// Dot colour of a row's state.
 StatusTone inventoryTone(InventoryStatus status) => switch (status) {
@@ -189,7 +203,7 @@ class _PluginInventoryPageState extends ConsumerState<PluginInventoryPage> {
               FeatureMessage(
                 icon: AppIcons.error,
                 title: l10n.pluginsInventoryReadFailed,
-                body: describeSettingsError(async.error!),
+                body: pluginInventoryErrorText(async.error!),
                 action: (l10n.commonRetry, () => ref.invalidate(pluginInventoryProvider)),
               )
             else if (snapshot == null)

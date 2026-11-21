@@ -147,19 +147,39 @@ class PluginInstallsController extends Notifier<Map<String, PluginInstallJob>> {
   static final _random = Random();
 
   PluginHost? _host;
+  DshClient? _hostClient;
   int _generation = 0;
   Future<void> _tail = Future.value();
   final Set<String> _cancelledQueued = {};
   final Set<String> _cancelledRemovals = {};
   final Map<String, List<Completer<PluginInstallJob>>> _waiters = {};
 
+  /// The jobs themselves, so a job survives a rebuild that is only a change of
+  /// link liveness: the install keeps running on the Host, and its card, its
+  /// cancel and its errors must come back when the link does. [state] mirrors
+  /// this map for the UI.
+  final Map<String, PluginInstallJob> _jobs = {};
+
   @override
   Map<String, PluginInstallJob> build() {
-    _host = ref.watch(pluginHostProvider);
+    final host = ref.watch(pluginHostProvider);
+    final client = host?.client;
+    // A different Host (another client) starts with no jobs; a loss and
+    // return of the *same* Host keeps them. pluginHostProvider is null while
+    // the mux reconnects, and clearing then would drop every running install
+    // from the screen on a one-second blip — the request itself keeps running
+    // on the Host, so its card and result come back when the link does.
+    if (client != null && _hostClient != null && !identical(client, _hostClient)) {
+      _jobs.clear();
+    }
+    if (client != null) _hostClient = client;
+    _host = host;
+    // Steps not yet sent stay cancelled across a rebuild, as before: nothing
+    // is replayed onto a new connection.
     _generation++;
     _tail = Future.value();
     _cancelledQueued.clear();
-    return const {};
+    return {..._jobs};
   }
 
   /// Queues [request]; resolves with the finished job. A plugin that is
@@ -234,6 +254,7 @@ class PluginInstallsController extends Notifier<Map<String, PluginInstallJob>> {
   void dismiss(String name) {
     final job = state[name];
     if (job == null || job.isActive) return;
+    _jobs.remove(name);
     state = {...state}..remove(name);
   }
 
@@ -437,7 +458,8 @@ class PluginInstallsController extends Notifier<Map<String, PluginInstallJob>> {
 
   void _put(PluginInstallJob job) {
     if (!ref.mounted) return;
-    state = {...state, job.request.name: job};
+    _jobs[job.request.name] = job;
+    state = {..._jobs};
     _settle(job);
   }
 
@@ -450,10 +472,11 @@ class PluginInstallsController extends Notifier<Map<String, PluginInstallJob>> {
 
   void _update(String name, String requestId, PluginInstallJob Function(PluginInstallJob) change) {
     if (!ref.mounted) return;
-    final current = state[name];
+    final current = _jobs[name];
     if (current == null || current.requestId != requestId) return;
     final next = change(current);
-    state = {...state, name: next};
+    _jobs[name] = next;
+    state = {..._jobs};
     _settle(next);
   }
 }

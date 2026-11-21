@@ -12,6 +12,7 @@ import '../../l10n/l10n.dart';
 import '../link_status.dart';
 import 'remote_shell.dart';
 import 'ssh_host_config.dart';
+import 'ssh_session_capabilities.dart';
 
 /// A byte pipe to `host:port` on the remote side of the SSH connection.
 abstract class TunnelChannel {
@@ -99,7 +100,7 @@ abstract class SshTransport implements RemoteShell {
 typedef SshTransportFactory = Future<SshTransport> Function(SshConnectParams params, HostKeyCheck verifyHostKey);
 
 /// dartssh2-backed transport.
-class DartSshTransport implements SshTransport, RemoteBootstrapShell {
+class DartSshTransport implements SshTransport, RemoteBootstrapShell, SshSessionHost {
   /// Takes ownership of an authenticated client, including closing it.
   DartSshTransport.fromClient(this._client);
 
@@ -425,6 +426,27 @@ class DartSshTransport implements SshTransport, RemoteBootstrapShell {
   }
 
   @override
+  bool get supportsSftp => !isClosed;
+
+  @override
+  bool get supportsPty => !isClosed;
+
+  @override
+  Future<SshFileSession> openSftp() async {
+    if (isClosed) throw StateError('SSH connection is closed');
+    return _DartFileSession(await _client.sftp());
+  }
+
+  @override
+  Future<SshPtySession> openPty([SshPtyOptions options = const SshPtyOptions()]) async {
+    if (isClosed) throw StateError('SSH connection is closed');
+    final session = await _client.shell(
+      pty: SSHPtyConfig(type: options.term, width: options.columns, height: options.rows),
+    );
+    return _DartPtySession(session);
+  }
+
+  @override
   Future<TunnelChannel> openTunnel(String host, int port) async {
     try {
       final channel = await _client.forwardLocal(host, port, localHost: '127.0.0.1');
@@ -524,4 +546,159 @@ String _bootstrapDiagnostic(String text) {
   final redacted = redactDiagnostics(redactRemoteTokens(text)).trim();
   const limit = 4096;
   return redacted.length <= limit ? redacted : '…\n${redacted.substring(redacted.length - limit)}';
+}
+
+/// One interactive shell on the SSH connection. The pty merges the remote
+/// process's stderr into stdout, but the two streams are merged anyway so a
+/// server that still separates them loses nothing.
+class _DartPtySession implements SshPtySession {
+  _DartPtySession(this._session);
+
+  final SSHSession _session;
+
+  @override
+  late final Stream<Uint8List> output = _merge(_session.stdout, _session.stderr);
+
+  @override
+  void write(List<int> data) => _session.write(data is Uint8List ? data : Uint8List.fromList(data));
+
+  @override
+  void resize({required int columns, required int rows}) {
+    if (columns < 1 || rows < 1) return;
+    _session.resizeTerminal(columns, rows);
+  }
+
+  @override
+  Future<int?> get exitCode => _session.waitForExit();
+
+  @override
+  Future<void> get done => _session.done;
+
+  @override
+  void close() => _session.close();
+}
+
+Stream<Uint8List> _merge(Stream<Uint8List> first, Stream<Uint8List> second) {
+  late final StreamController<Uint8List> controller;
+  final subscriptions = <StreamSubscription<Uint8List>>[];
+  var open = 2;
+  void onDone() {
+    open--;
+    if (open <= 0 && !controller.isClosed) controller.close();
+  }
+
+  controller = StreamController<Uint8List>(
+    onListen: () {
+      for (final stream in [first, second]) {
+        subscriptions.add(
+          stream.listen(controller.add, onError: controller.addError, onDone: onDone),
+        );
+      }
+    },
+    onCancel: () async {
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      subscriptions.clear();
+    },
+  );
+  return controller.stream;
+}
+
+/// SFTP over the same SSH connection. Paths stay absolute on the server: the
+/// caller expands `~` itself because SFTP only does when the server does.
+class _DartFileSession implements SshFileSession {
+  _DartFileSession(this._sftp);
+
+  final SftpClient _sftp;
+
+  @override
+  Future<List<SshFileEntry>> list(String path) async {
+    final names = await _sftp.listdir(path);
+    return [
+      for (final name in names)
+        if (name.filename != '.' && name.filename != '..')
+          SshFileEntry(
+            name: name.filename,
+            isDirectory: name.attr.isDirectory,
+            isSymbolicLink: name.attr.mode?.type == SftpFileType.symbolicLink,
+            size: name.attr.size,
+            modified: _time(name.attr.modifyTime),
+            mode: _permissions(name.attr.mode),
+          ),
+    ];
+  }
+
+  @override
+  Future<SshFileStat> stat(String path, {bool followLinks = true}) async {
+    final attrs = await _sftp.stat(path, followLink: followLinks);
+    return SshFileStat(
+      isDirectory: attrs.isDirectory,
+      isSymbolicLink: attrs.mode?.type == SftpFileType.symbolicLink,
+      isRegularFile: attrs.isFile,
+      size: attrs.size,
+      modified: _time(attrs.modifyTime),
+      mode: _permissions(attrs.mode),
+    );
+  }
+
+  @override
+  Future<Uint8List> readRange(String path, {int offset = 0, int? length}) async {
+    final file = await _sftp.open(path, mode: SftpFileOpenMode.read);
+    try {
+      return await file.readBytes(length: length, offset: offset);
+    } finally {
+      await file.close();
+    }
+  }
+
+  @override
+  Future<void> writeRange(
+    String path,
+    Uint8List bytes, {
+    int offset = 0,
+    bool create = true,
+    bool truncate = false,
+    bool append = false,
+  }) async {
+    var mode = SftpFileOpenMode.write;
+    if (append) {
+      mode = mode | SftpFileOpenMode.create | SftpFileOpenMode.append;
+    } else if (truncate) {
+      mode = mode | SftpFileOpenMode.create | SftpFileOpenMode.truncate;
+    } else if (create) {
+      mode = mode | SftpFileOpenMode.create;
+    }
+    final file = await _sftp.open(path, mode: mode);
+    try {
+      await file.writeBytes(bytes, offset: offset);
+    } finally {
+      await file.close();
+    }
+  }
+
+  @override
+  Future<void> makeDirectory(String path) => _sftp.mkdir(path);
+
+  @override
+  Future<void> remove(String path, {bool directory = false}) =>
+      directory ? _sftp.rmdir(path) : _sftp.remove(path);
+
+  @override
+  Future<void> rename(String from, String to) => _sftp.rename(from, to);
+
+  @override
+  Future<void> chmod(String path, int mode) =>
+      _sftp.setStat(path, SftpFileAttrs(mode: SftpFileMode.value(mode)));
+
+  @override
+  Future<String> absolute(String path) => _sftp.absolute(path);
+
+  @override
+  Future<void> close() => _sftp.close();
+
+  static DateTime? _time(int? seconds) =>
+      seconds == null ? null : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+
+  static int? _permissions(SftpFileMode? mode) => mode == null ? null : mode.value & 0xFFF;
 }

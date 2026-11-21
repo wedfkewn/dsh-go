@@ -594,7 +594,7 @@ class SessionsController extends AsyncNotifier<List<SessionSummary>> {
   /// directory) and returns its id. [autoApprove] false keeps the host's
   /// permission preset even when 自动批准命令 is on (the companion's).
   Future<String> create({bool autoApprove = true}) async {
-    final conn = ref.read(activeConnectionProvider).value;
+    final conn = ref.read(activeWriteConnectionProvider);
     if (conn == null) throw StateError('not connected');
     return createForConnection(conn, autoApprove: autoApprove, isCurrent: () => true);
   }
@@ -836,21 +836,21 @@ class SessionsController extends AsyncNotifier<List<SessionSummary>> {
     if (_deleting.contains(sessionId) || _deleted.contains(sessionId)) {
       throw const DshClosedException('session is being deleted');
     }
-    final conn = ref.read(activeConnectionProvider).value;
+    final conn = ref.read(activeWriteConnectionProvider);
     if (conn == null) throw const DshClosedException('not connected');
     await conn.client.archiveSession(sessionId, stopActivity: true);
     await refresh();
   }
 
   Future<void> unarchive(String sessionId) async {
-    final conn = ref.read(activeConnectionProvider).value;
+    final conn = ref.read(activeWriteConnectionProvider);
     if (conn == null) throw const DshClosedException('not connected');
     await conn.client.unarchiveSession(sessionId);
     await refresh();
   }
 
   Future<void> rename(String sessionId, String title) async {
-    final conn = ref.read(activeConnectionProvider).value;
+    final conn = ref.read(activeWriteConnectionProvider);
     if (conn == null) return;
     await conn.client.renameSession(sessionId, title);
     await refresh();
