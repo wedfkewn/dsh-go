@@ -4,7 +4,6 @@ import fs, { chmod, mkdir, mkdtemp, open, readdir, rm } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, parse } from 'node:path';
-import { createPaths } from '../../../direct/paths.mjs';
 import { createBudgetLedger } from '../src/budget-ledger.js';
 
 // Exercise real DAC failures. Root bypasses mode bits; Windows has no
@@ -38,8 +37,9 @@ async function fixture(t, position = 'inside') {
   if (position === 'external' || position === 'sibling') {
     await mkdir(dirname(directory), { recursive: true, mode: 0o700 });
   }
-  globalThis[direct] = Object.freeze(createPaths(rootfs,
-    position === 'external' ? [{ host: dirname(directory), guest: '/mnt/state' }] : []));
+  // The ledger and the staging store read only `.root` off the consumer contract;
+  // this is the input they are handed, not a stand-in for the Direct runtime.
+  globalThis[direct] = Object.freeze({ root: rootfs });
   async function restrict(path) { await chmod(path, 0o111); restricted.push(path); }
   await restrict(outside);
   return { outside, rootfs, directory, restrict, ledger: createBudgetLedger(directory) };

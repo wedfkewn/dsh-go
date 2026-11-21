@@ -7,7 +7,6 @@ import fs, { chmod, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } fro
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, parse } from 'node:path';
-import { createPaths } from '../../../direct/paths.mjs';
 import { prepareImageStore } from '../src/storage.js';
 import { createStreamStager } from '../src/stream-staging.js';
 
@@ -39,8 +38,9 @@ async function fixture(t, { mounted = false } = {}) {
     const handle = await open(path, 'r');
     try { await handle.sync(); } finally { await handle.close(); }
   }
-  globalThis[direct] = Object.freeze(createPaths(rootfs,
-    mounted ? [{ host: cwd, guest: '/mnt/external' }] : []));
+  // The ledger and the staging store read only `.root` off the consumer contract;
+  // this is the input they are handed, not a stand-in for the Direct runtime.
+  globalThis[direct] = Object.freeze({ root: rootfs });
   await mkdir(cwd, { recursive: true });
   async function restrict(path) { await chmod(path, 0o111); restricted.push(path); }
   await restrict(outside);
