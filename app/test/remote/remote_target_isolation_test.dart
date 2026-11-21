@@ -241,6 +241,43 @@ void main() {
     expect(remote.calls, isEmpty);
   });
 
+  test('an SSH connection is refused for a relay host that shares its id', () async {
+    // Same id, different kind: the two are different hosts and must not merge.
+    final conn = HostConnection(
+      client: DshClient.withCarrier(remote),
+      label: '电脑',
+      isLocal: false,
+      kind: HostKind.ssh,
+      hostId: 'pc',
+    );
+    final c = containerFor(AsyncData(conn));
+    c.read(activeHostProvider.notifier).select(const HostRef.relay('pc'));
+    addTearDown(() => c.read(activeHostProvider.notifier).select(HostRef.local));
+
+    expect(readListConnection(c.read(activeConnectionProvider), const HostRef.relay('pc')), isNull, reason: 'kind 不同不得互认');
+    expect(readListConnection(c.read(activeConnectionProvider), const HostRef.ssh('pc')), isNotNull, reason: '对 SSH 主机本身仍然有效');
+    expect(c.read(readListLiveConnectionProvider), isNull);
+    await _settle();
+    expect(remote.calls, isEmpty);
+  });
+
+  test('a remote connection without a host id is refused, not trusted for every host', () async {
+    final conn = HostConnection(
+      client: DshClient.withCarrier(remote),
+      label: '电脑',
+      isLocal: false,
+      kind: HostKind.ssh,
+    );
+    final c = containerFor(AsyncData(conn));
+    c.read(activeHostProvider.notifier).select(const HostRef.ssh('pc'));
+    addTearDown(() => c.read(activeHostProvider.notifier).select(HostRef.local));
+
+    expect(readListConnection(c.read(activeConnectionProvider), const HostRef.ssh('pc')), isNull, reason: '缺 hostId 就没有身份，不得放行');
+    expect(c.read(readListLiveConnectionProvider), isNull);
+    await _settle();
+    expect(remote.calls, isEmpty);
+  });
+
   test('switching host retargets writes: the remote is left untouched', () async {
     final remoteConn = workspaceHost(remote, local: false);
     final localConn = workspaceHost(localHost);

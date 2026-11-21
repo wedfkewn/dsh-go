@@ -316,7 +316,10 @@ void main() {
     };
     await _check(tester, SettingsPageId.permission, () async {
       await _app(tester, const PermissionPage(sessionId: 's1'), [
-        activeConnectionProvider.overrideWithValue(AsyncData(engine.fakeConnection(client, local: false))),
+        // The permission index expects the phone-only row (phone-files), so
+        // this page is exercised on the local host; the fake client still
+        // answers the permission RPCs.
+        activeConnectionProvider.overrideWithValue(AsyncData(engine.fakeConnection(client))),
         ..._running(),
       ]);
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));

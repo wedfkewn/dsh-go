@@ -18,7 +18,18 @@ final _routing = activeConnectionProvider.overrideWith((ref) {
   final host = ref.watch(activeHostProvider);
   final peer = ref.watch(_peers)[host];
   return AsyncData<HostConnection?>(
-    peer == null ? null : HostConnection(client: peer.client, label: peer.label, isLocal: host.isLocal),
+    peer == null
+        ? null
+        : HostConnection(
+            client: peer.client,
+            label: peer.label,
+            isLocal: host.isLocal,
+            // The fixture stands in for the selected host: carry its identity,
+            // or the write admission sees a 本机 connection under a relay/SSH
+            // selection (the local fallback it must refuse).
+            kind: host.kind,
+            hostId: host.isLocal ? null : host.id,
+          ),
   );
 });
 

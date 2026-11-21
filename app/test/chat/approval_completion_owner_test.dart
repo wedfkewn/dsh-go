@@ -25,6 +25,10 @@ final _routing = activeConnectionProvider.overrideWith((ref) {
             client: peer.client,
             label: peer.label,
             isLocal: host.isLocal,
+            // This fixture stands in for the selected host; carry the identity
+            // a real RemoteConnectionController wraps the client with.
+            kind: host.kind,
+            hostId: host.isLocal ? null : host.id,
           ),
   );
 });

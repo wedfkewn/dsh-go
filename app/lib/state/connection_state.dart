@@ -328,13 +328,18 @@ class RemoteConnectionController extends AsyncNotifier<HostConnection?> {
     final link = ref.read(hostLinkProvider(host));
     if (link == null) return;
     final phase = link.status.phase;
-    // The link owns retry: it also clears a deliberate stop, which invalidating
-    // this provider would not do.
-    if (phase == HostLinkPhase.reconnecting || phase == HostLinkPhase.failed) {
+    // The SSH link owns retry: it also clears a deliberate stop, which
+    // invalidating this provider would not do.
+    if (link is SshHostLink && (phase == HostLinkPhase.reconnecting || phase == HostLinkPhase.failed)) {
       link.retry();
       return;
     }
-    if (state.hasError) ref.invalidateSelf();
+    // A link still retrying on its own just skips its wait.
+    if (phase != HostLinkPhase.reconnecting && (phase == HostLinkPhase.failed || state.hasError)) {
+      ref.invalidateSelf();
+    } else {
+      link.retry();
+    }
   }
 }
 

@@ -75,6 +75,56 @@ need("ios-compile engine", full_archive, "DSH_IOS_BUNDLE_RUNTIME: 'YES'", "the F
 full_upload = step(engine, "Keep the unsigned app")
 need("ios-compile engine", full_upload, "steps.archive.outcome == 'success'", "the Full IPA upload does not wait for the audit")
 
+# Every simulator check builds the app itself, so each one needs the embedded
+# runtime ZIP. Without it the Debug app keeps the loopback download source and
+# fails with ios_download_network on a runner that serves no such URL.
+for smoke in (
+    "Run the engine inside the app",
+    "Launch the real app",
+    "Drive other apps with the phone runner",
+    "Call the browser and system tools inside the app",
+):
+    block = step(engine, smoke)
+    need("ios-compile engine", block, "DSH_IOS_BUNDLE_RUNTIME: 'YES'", f"{smoke!r} builds without the runtime ZIP")
+    need("ios-compile engine", block, "id: smoke_", f"{smoke!r} has no id for the verdict step")
+
+# The build verdict and the simulator verdicts are reported apart, so that a red
+# simulator check is not read as a broken build or the reverse.
+need("ios-compile engine", step(engine, "Report the build and the simulator results apart"), "verdict/build.txt", "the build verdict is not written apart from the smoke verdicts")
+need("ios-compile engine", step(engine, "Report the build and the simulator results apart"), "verdict/smoke.txt", "the smoke verdicts are not written separately")
+need("ios-compile engine", step(engine, "Keep the two verdicts apart"), "ios-verdicts", "both verdicts are not kept as their own artifact")
+
+# Each packaged app publishes a small text manifest (identity, contents, checksums)
+# so the archive can be reviewed without pulling the whole .ipa.
+need("ios-compile engine", step(engine, "Keep the Full package manifest"), "full-package-manifest.txt", "the Full manifest is not kept as its own artifact")
+need("ios-compile remote-only", step(job(ios, "remote-only"), "Keep the Remote Only package manifest"), "remote-only-package-manifest.txt", "the Remote Only manifest is not kept")
+for needle, what in (
+    ("bundle id:", "the manifest has no bundle id"),
+    ("version:", "the manifest has no version"),
+    ("ipa sha256:", "the manifest has no checksum"),
+    ("runtime.zip:", "the manifest never shows the embedded runtime"),
+    ("engine framework", "the manifest never shows the engine frameworks"),
+):
+    if needle not in archive:
+        fail(f"check-archive.sh: package manifest lost {needle!r}: {what}")
+
+
+# The shared host-core case is real coverage: its sources moved to
+# runtime/shared/host (plus runtime/ohos/host for the lifecycle header), and the
+# build script must point there instead of the removed app/ohos tree.
+HOST_CORE = ROOT / "runtime" / "tests" / "ohos" / "host-core.py"
+host_core = HOST_CORE.read_text(encoding="utf-8")
+if "app/ohos" in host_core:
+    fail("host-core.py: still builds from the removed app/ohos tree")
+if "runtime/shared/host" not in host_core:
+    fail("host-core.py: does not build the host core kept at runtime/shared/host")
+addons = step(job(ios, "compile"), "Check where the engine looks for its addons")
+need("ios-compile compile", addons, "host-core.py --ios", "the iOS addon layout is no longer checked")
+need("ios-compile compile", addons, "host-core.py --out", "the default host profile is no longer checked")
+shared = step(engine, "Check the shared host profiles")
+need("ios-compile engine", shared, "inputs.regression_only", "the shared host profiles are not rechecked")
+need("ios-compile engine", shared, "host-core.py --ios", "the shared host check lost its iOS mode")
+
 # Remote Only: no prepared engine, and the same upload gate.
 remote = job(ios, "remote-only")
 need("ios-compile remote-only", remote, "app/ios/Engine/.ready", "the job does not refuse a prepared engine")

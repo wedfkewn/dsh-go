@@ -62,7 +62,7 @@ void main() {
         tester,
         const EngineSettingsPage(ns: 'affinity'),
         overrides: [
-          ...engineOverrides(aClient).skip(1),
+          ...engineOverrides(aClient, local: false).skip(1),
           testHostProvider.overrideWith((ref) => fakeConnection(aClient, local: false)),
           activeConnectionProvider.overrideWith((ref) => AsyncData(ref.watch(testHostProvider))),
         ],
@@ -92,7 +92,7 @@ void main() {
     final bClient = DshClient.withCarrier(b);
     final container = ProviderContainer(
       overrides: [
-        ...engineOverrides(aClient).skip(1),
+        ...engineOverrides(aClient, local: false).skip(1),
         testHostProvider.overrideWith((ref) => fakeConnection(aClient, local: false)),
         activeConnectionProvider.overrideWith((ref) => AsyncData(ref.watch(testHostProvider))),
       ],
@@ -112,7 +112,7 @@ void main() {
   Future<ProviderContainer> startContainer(DshClient client) async {
     final container = ProviderContainer(
       overrides: [
-        ...engineOverrides(client).skip(1),
+        ...engineOverrides(client, local: false).skip(1),
         testHostProvider.overrideWith((ref) => fakeConnection(client, local: false)),
         activeConnectionProvider.overrideWith((ref) => AsyncData(ref.watch(testHostProvider))),
       ],

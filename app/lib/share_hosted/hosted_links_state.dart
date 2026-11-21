@@ -52,6 +52,11 @@ final hostedShareClientProvider = Provider<HostedShareClient>((ref) {
   return client;
 });
 
+/// The clock the retention window is measured with. Production uses the wall
+/// clock; tests pin it so an expired-but-kept link does not fall off the list
+/// as the real date moves (the page's own `clock` only words the expiry).
+final hostedLinksClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// A delete that didn't go through; the link is back in the list.
 class HostedDeleteFailure {
   const HostedDeleteFailure(this.link, this.error);
@@ -150,7 +155,7 @@ class HostedLinksController extends Notifier<HostedLinksState> {
     try {
       final saved = await ref.read(hostedLinkStoreProvider).load();
       if (!ref.mounted) return false;
-      final cutoff = DateTime.now().subtract(keepExpired);
+      final cutoff = ref.read(hostedLinksClockProvider)().subtract(keepExpired);
       final links = [
         for (final l in saved)
           if (l.expiresAt == null || l.expiresAt!.isAfter(cutoff)) l,
@@ -340,7 +345,7 @@ class HostedLinksController extends Notifier<HostedLinksState> {
     if (!ref.mounted) return;
     _canSave = true;
     _plainPersisted.addAll(saved.map((link) => link.id));
-    final cutoff = DateTime.now().subtract(keepExpired);
+    final cutoff = ref.read(hostedLinksClockProvider)().subtract(keepExpired);
     final links = [
       for (final l in saved)
         if (l.expiresAt == null || l.expiresAt!.isAfter(cutoff)) l,

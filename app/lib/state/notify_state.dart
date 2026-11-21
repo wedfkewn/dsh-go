@@ -114,9 +114,10 @@ class NotifyPrefsController extends Notifier<NotifyPrefs> {
   }
 
   Future<void> _load() async {
+    late final NotifyPrefs loaded;
     try {
       final prefs = await SharedPreferences.getInstance();
-      state = NotifyPrefs(
+      loaded = NotifyPrefs(
         enabled: prefs.getBool(_keys.enabled) ?? true,
         done: prefs.getBool(_keys.done) ?? true,
         failed: prefs.getBool(_keys.failed) ?? true,
@@ -128,14 +129,20 @@ class NotifyPrefsController extends Notifier<NotifyPrefs> {
       );
     } catch (_) {
       // No preferences backend (tests): defaults, all on.
-      state = state.copyWith(loaded: true);
+      loaded = const NotifyPrefs(loaded: true);
     }
+    // Reading the store outlives the screen that first watched it, and in a
+    // test it can outlive the container itself. Writing then would touch a
+    // disposed notifier; the next container reads the store again anyway.
+    if (!ref.mounted) return;
+    state = loaded;
   }
 
   /// Applies after the stored values are in, so a load finishing late can't
   /// undo a switch flipped right after launch.
   Future<void> _save(String key, bool value, NotifyPrefs Function(NotifyPrefs) apply) async {
     await _loaded;
+    if (!ref.mounted) return;
     state = apply(state);
     try {
       await (await SharedPreferences.getInstance()).setBool(key, value);

@@ -380,22 +380,40 @@ Future<DshClient> fakeClient(FakeSettingsHost host) async {
   return client;
 }
 
+/// The identity a real remote connection carries (RemoteConnectionController
+/// wraps every client with the selected host's kind and id). A fixture without
+/// it is what the write admission must refuse, so tests select [fakeHostId].
+const fakeHostId = 'fake-host';
+
 HostConnection fakeConnection(DshClient client, {bool local = true}) => HostConnection(
   client: client,
   label: local ? '本机' : '电脑 · SSH',
   isLocal: local,
   kind: local ? HostKind.local : HostKind.ssh,
+  hostId: local ? null : fakeHostId,
 );
 
 /// What the engine settings pages need, with [host] as the active engine.
 List<Override> engineOverrides(DshClient? client, {bool local = true, AppSettings? settings}) => [
   activeConnectionProvider.overrideWithValue(AsyncData(client == null ? null : fakeConnection(client, local: local))),
+  // Match the connection's identity: tests that skip the first override still
+  // keep this selection, and their own fakeConnection uses the same id.
+  if (!local) activeHostProvider.overrideWith(() => _FakeSshHost()),
   localSafeModeProvider.overrideWithValue(false),
   settingsProvider.overrideWith(() => FakeSettings(settings ?? const AppSettings(loaded: true))),
   // Live engine settings, not the read-list display cache: its identity
   // would read the local runtime, which these pages do not fake.
   readListIdentityProvider.overrideWithValue(null),
 ];
+
+class _FakeSshHost extends ActiveHostController {
+  @override
+  HostRef build() => const HostRef.ssh(fakeHostId);
+}
+
+/// Selects the SSH host [fakeConnection] identifies, for fixtures that supply
+/// their own connection override instead of [engineOverrides].
+Override get fakeSshHostOverride => activeHostProvider.overrideWith(() => _FakeSshHost());
 
 /// A few frames: state changes land, their transitions finish.
 Future<void> settle(WidgetTester tester) async {

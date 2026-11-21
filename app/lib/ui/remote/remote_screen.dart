@@ -207,10 +207,12 @@ class _ActiveCard extends ConsumerWidget {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                [
-                  _statusLine(status, view, ssh?.address),
-                  ?sshOwnershipLabel(context, ssh, ownership: link is SshHostLink ? link.ownership : null),
-                ].join(' · '),
+                _statusLine(
+                  status,
+                  view,
+                  ssh?.address,
+                  sshOwnershipLabel(context, ssh, ownership: link is SshHostLink ? link.ownership : null),
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -278,17 +280,29 @@ class _ActiveCard extends ConsumerWidget {
     );
   }
 
-  static String _statusLine(HostLinkStatus status, HostStatusView view, String? address) {
+  /// One line of state, most important first: a long address must be the part
+  /// that gets cut, not the ownership of the instance.
+  static String _statusLine(
+    HostLinkStatus status,
+    HostStatusView view,
+    String? address,
+    String? ownership,
+  ) {
     if (status.phase == HostLinkPhase.reconnecting) {
       final why = status.error?.message;
       return why == null ? appL10n.remoteReconnectingEllipsis : appL10n.remoteReconnectReason(why);
     }
     if (status.phase == HostLinkPhase.connected) {
-      if (address != null) return appL10n.remoteConnectedSsh(address);
       final path = status.network?.path ?? status.path;
-      return path == null ? appL10n.remoteConnectedEncrypted : appL10n.remoteConnectedVia(path.label);
+      // The green dot already says "connected": spend the line on who owns the
+      // instance and which address it is, not on repeating the state word.
+      if (address != null) return ownership == null ? appL10n.remoteConnectedSsh(address) : '$ownership · $address';
+      return [
+        ?ownership,
+        if (path != null) appL10n.remoteConnectedVia(path.label) else appL10n.remoteConnectedEncrypted,
+      ].join(' · ');
     }
-    return view.label;
+    return [?ownership, view.label].join(' · ');
   }
 }
 
@@ -413,7 +427,7 @@ class _SshRow extends ConsumerWidget {
         icon: hostKindIcon(HostKind.ssh),
         tinted: false,
         title: config.name,
-        subtitle: [config.address, ?sshOwnershipLabel(context, config)].join(' · '),
+        subtitle: [?sshOwnershipLabel(context, config), config.address].join(' · '),
         onTap: onTap,
         value: view == null ? null : _HostState(view),
         trailing: _EdgeIconButton(

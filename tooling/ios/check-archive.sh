@@ -176,5 +176,39 @@ cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
 (cd "$RUNNER_TEMP/ipa" && /usr/bin/ditto -c -k --keepParent Payload "$RUNNER_TEMP/$ipa")
 note 'archive ipa' "$(du -h "$RUNNER_TEMP/$ipa" | cut -f1), unsigned, in the $artifact artifact"
 
+# A text-only description of what was packaged, so the archive can be reviewed
+# without pulling the whole .ipa: identity, contents, and checksums.
+plist="$app/Info.plist"
+read_plist() { /usr/libexec/PlistBuddy -c "Print :$1" "$plist" 2>/dev/null || echo 'unknown'; }
+manifest_out="$RUNNER_TEMP/$mode-package-manifest.txt"
+{
+  echo "variant: $mode"
+  echo "commit: ${GITHUB_SHA:-unknown}"
+  echo "bundle id: $(read_plist CFBundleIdentifier)"
+  echo "version: $(read_plist CFBundleShortVersionString) ($(read_plist CFBundleVersion))"
+  echo "minimum os: $(read_plist MinimumOSVersion)"
+  echo "app size: $(du -sh "$app" | cut -f1)"
+  echo "ipa: $(basename "$ipa") $(wc -c <"$RUNNER_TEMP/$ipa" | tr -d ' ') bytes"
+  echo "ipa sha256: $(shasum -a 256 "$RUNNER_TEMP/$ipa" | cut -d' ' -f1)"
+  echo "top level: $(ls "$app" | tr '\n' ' ')"
+  echo "frameworks: $(ls "$frameworks" | tr '\n' ' ')"
+  for name in $engine_frameworks NodeMobile; do
+    if [ -e "$frameworks/$name.framework" ]; then
+      echo "engine framework $name: present"
+    else
+      echo "engine framework $name: absent"
+    fi
+  done
+  if [ -f "$app/dsh-runtime/runtime.zip" ]; then
+    echo "runtime.zip: $(wc -c <"$app/dsh-runtime/runtime.zip" | tr -d ' ') bytes sha256 $(shasum -a 256 "$app/dsh-runtime/runtime.zip" | cut -d' ' -f1)"
+  elif [ -f "$app/dsh-runtime/runtime-download.json" ]; then
+    echo "runtime download source: $(tr -d '\n' <"$app/dsh-runtime/runtime-download.json" | cut -c1-400)"
+  else
+    echo "runtime: none"
+  fi
+  echo "audit: $( [ "$failed" -eq 0 ] && echo 'looks whole' || echo 'failed' )"
+} >"$manifest_out" 2>/dev/null
+note 'archive manifest' "$(wc -l <"$manifest_out" | tr -d ' ') lines in $manifest_out"
+
 note 'archive' "$( [ "$failed" -eq 0 ] && echo 'looks whole' || echo 'see the errors')"
 exit "$failed"

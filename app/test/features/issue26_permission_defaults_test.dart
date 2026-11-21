@@ -12,6 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../chat/support/harness.dart';
 import '../plugins/support/fake_plugin_host.dart';
 
+class _FakeSshHost extends ActiveHostController {
+  @override
+  HostRef build() => const HostRef.ssh('fake-host');
+}
+
 class _Settings extends SettingsController {
   @override
   AppSettings build() => const AppSettings(loaded: true);
@@ -70,6 +75,7 @@ void main() {
         PermissionPage(sessionId: sessionId),
         overrides: [
           activeConnectionProvider.overrideWithValue(AsyncData(fakeHost(client, kind: HostKind.ssh))),
+          activeHostProvider.overrideWith(_FakeSshHost.new),
           settingsProvider.overrideWith(_Settings.new),
         ],
       ),
@@ -156,7 +162,10 @@ void main() {
     carrier.handlers['permissionPresets/catalog'] = (_) => throw const DshRemoteException('offline', 'unreachable');
     final container = ProviderContainer(
       retry: (_, _) => null,
-      overrides: [activeConnectionProvider.overrideWithValue(AsyncData(fakeHost(client, kind: HostKind.ssh)))],
+      overrides: [
+        activeConnectionProvider.overrideWithValue(AsyncData(fakeHost(client, kind: HostKind.ssh))),
+        activeHostProvider.overrideWith(_FakeSshHost.new),
+      ],
     );
     addTearDown(container.dispose);
     final sub = container.listen(permissionStateProvider(null), (_, _) {});

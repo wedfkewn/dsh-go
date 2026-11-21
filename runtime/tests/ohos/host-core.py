@@ -17,9 +17,14 @@ def main():
     args = parser.parse_args()
     args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=False)
-    core = ROOT / 'app/ohos/entry/src/main/cpp'
+    # The host core kept by iOS lives in runtime/shared/host; the lifecycle
+    # snapshot header it includes stayed under runtime/ohos/host. Both were one
+    # directory in the removed OHOS app tree, so both are on the include path.
+    core = ROOT / 'runtime/shared/host'
+    lifecycle = ROOT / 'runtime/ohos/host'
     command = [os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-Werror',
-               '-I', str(core), str(core / 'host_core.cpp'), str(ROOT / 'runtime/tests/ohos/host-core.cc'),
+               '-I', str(core), '-I', str(lifecycle), str(core / 'host_core.cpp'),
+               str(ROOT / 'runtime/tests/ohos/host-core.cc'),
                '-pthread', '-o', str(args.out / 'host-core')]
     if args.ios:
         command.insert(1, '-DDSH_IOS_HOST')

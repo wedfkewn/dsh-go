@@ -166,6 +166,15 @@ jobs:
           compression-level: 0
           retention-days: 14
 
+      - name: Keep the Remote Only package manifest
+        if: ${{ always() && steps.archive.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-remote-only-package-manifest
+          path: ${{ runner.temp }}/remote-only-package-manifest.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
   engine:
     runs-on: macos-26
     timeout-minutes: 120
@@ -423,27 +432,42 @@ jobs:
           flutter gen-l10n
 
       - name: Run the engine inside the app
+        id: smoke_engine
         if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        # Without this the Debug simulator app keeps app/ios/runtime-download.json
+        # (the loopback URL used for desktop debugging) and every install tries to
+        # fetch the runtime from 127.0.0.1:8787, which no CI runner serves.
+        env:
+          DSH_IOS_BUNDLE_RUNTIME: 'YES'
         run: |
           (cd app && bash ../tooling/ios/build.sh --simulator --debug -t integration_test/ios_engine_check.dart)
           node="$(ls -d "$DSH_IOS_ENGINE_WORK"/node-v*-darwin-arm64/bin/node)"
           "$node" tooling/ios/engine-smoke/app-check.mjs --simulator "$DSH_SIMULATOR"             --app app/build/ios/iphonesimulator/Runner.app --mode engine
 
       - name: Launch the real app
+        id: smoke_launch
         if: ${{ !inputs.regression_only && !cancelled() && steps.prepare.outcome == 'success' }}
+        env:
+          DSH_IOS_BUNDLE_RUNTIME: 'YES'
         run: |
           (cd app && bash ../tooling/ios/build.sh --simulator --debug)
           node="$(ls -d "$DSH_IOS_ENGINE_WORK"/node-v*-darwin-arm64/bin/node)"
           "$node" tooling/ios/engine-smoke/app-check.mjs --simulator "$DSH_SIMULATOR"             --app app/build/ios/iphonesimulator/Runner.app --mode launch --shot "$RUNNER_TEMP/launch.png"
 
       - name: Drive other apps with the phone runner
+        id: smoke_phones
         if: ${{ !inputs.regression_only && !cancelled() && steps.prepare.outcome == 'success' }}
+        env:
+          DSH_IOS_BUNDLE_RUNTIME: 'YES'
         run: |
           node="$(ls -d "$DSH_IOS_ENGINE_WORK"/node-v*-darwin-arm64/bin/node)"
           "$node" tooling/ios/engine-smoke/phone-runner-check.mjs --simulator "$DSH_SIMULATOR" --work "$RUNNER_TEMP/phone-runner"
 
       - name: Call the browser and system tools inside the app
+        id: smoke_tools
         if: ${{ !inputs.regression_only && !cancelled() && steps.prepare.outcome == 'success' }}
+        env:
+          DSH_IOS_BUNDLE_RUNTIME: 'YES'
         run: |
           node="$(ls -d "$DSH_IOS_ENGINE_WORK"/node-v*-darwin-arm64/bin/node)"
           "$node" tooling/ios/engine-smoke/tools-check.mjs --simulator "$DSH_SIMULATOR" --app app/build/ios/iphonesimulator/Runner.app --work "$RUNNER_TEMP/tools-check"
@@ -548,6 +572,57 @@ jobs:
           path: ${{ runner.temp }}/DSH-Go-unsigned.ipa
           if-no-files-found: ignore
           compression-level: 0
+          retention-days: 14
+
+      - name: Keep the Full package manifest
+        if: ${{ !inputs.regression_only && always() && steps.archive.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-package-manifest
+          path: ${{ runner.temp }}/full-package-manifest.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Report the build and the simulator results apart
+        # A red simulator check must not be read as a red build, and a produced IPA
+        # must not be read as a passed smoke test. Both verdicts are kept separately.
+        if: ${{ !inputs.regression_only && always() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/verdict"
+          word() {
+            case "$1" in
+              success) echo passed ;;
+              failure) echo failed ;;
+              skipped) echo "not run" ;;
+              cancelled) echo cancelled ;;
+              *) echo "not run" ;;
+            esac
+          }
+          echo "unsigned archive: $(word '${{ steps.archive.outcome }}')" > "$RUNNER_TEMP/verdict/build.txt"
+          {
+            echo "engine smoke: $(word '${{ steps.smoke_engine.outcome }}')"
+            echo "app launch: $(word '${{ steps.smoke_launch.outcome }}')"
+            echo "phone runner: $(word '${{ steps.smoke_phones.outcome }}')"
+            echo "browser and system tools: $(word '${{ steps.smoke_tools.outcome }}')"
+            echo "Swift phone contracts: $(word '${{ steps.swift.outcome }}')"
+          } > "$RUNNER_TEMP/verdict/smoke.txt"
+          {
+            echo "### Build"
+            cat "$RUNNER_TEMP/verdict/build.txt"
+            echo
+            echo "### Simulator checks (separate from the build verdict)"
+            cat "$RUNNER_TEMP/verdict/smoke.txt"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Build::$(cat "$RUNNER_TEMP/verdict/build.txt")"
+          echo "::notice title=Simulator checks::$(paste -sd'; ' "$RUNNER_TEMP/verdict/smoke.txt")"
+
+      - name: Keep the two verdicts apart
+        if: ${{ !inputs.regression_only && always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-verdicts
+          path: ${{ runner.temp }}/verdict/
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Keep the launch screenshot
